@@ -89,6 +89,22 @@ export function EmergencyProvider({ children }) {
     }
   };
 
+  const endEmergencyCall = async () => {
+    console.log('Ending emergency call...');
+    try {
+      setActiveCall(null);
+      setTranscript([]);
+      setPatientDetails({});
+      setSymptoms([]);
+      setSeverityScore(null);
+      setDispatchInfo(null);
+      return true;
+    } catch (error) {
+      console.error('Error ending emergency call:', error);
+      return false;
+    }
+  };
+
   const value = {
     socket,
     activeCall,
@@ -100,6 +116,7 @@ export function EmergencyProvider({ children }) {
     startEmergencyCall,
     updatePatientDetails,
     dispatchAmbulanceToLocation,
+    endEmergencyCall,
   };
 
   return (

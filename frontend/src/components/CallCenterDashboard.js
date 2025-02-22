@@ -16,7 +16,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon, CallEnd as CallEndIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
@@ -41,6 +41,7 @@ const CallCenterDashboard = () => {
     startEmergencyCall,
     updatePatientDetails,
     dispatchAmbulanceToLocation,
+    endEmergencyCall,
   } = useEmergency();
 
   const { addPatient } = useContext(PatientContext);
@@ -392,6 +393,40 @@ const CallCenterDashboard = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Hang Up Button */}
+      {activeCall && (
+        <Box sx={{ position: 'fixed', bottom: 20, right: 20 }}>
+          <Button
+            variant="contained"
+            color="error"
+            size="large"
+            onClick={async () => {
+              try {
+                const result = await endEmergencyCall();
+                if (result) {
+                  console.log('Call ended successfully');
+                  setEmergencyLocation(null);
+                  setAmbulanceLocation(null);
+                  setEditingDetails(false);
+                  setVerifiedDetails(false);
+                  setEditedPatientDetails({});
+                  setLiveTranscript('');
+                  setExtractedSymptoms([]);
+                } else {
+                  console.error('Failed to end call');
+                }
+              } catch (error) {
+                console.error('Error ending call:', error);
+              }
+            }}
+            startIcon={<CallEndIcon />}
+          >
+            Hang Up
+          </Button>
+        </Box>
+      )}
+
       <Dialog open={newCallDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>Start New Emergency Call</DialogTitle>
         <DialogContent>
