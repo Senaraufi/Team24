@@ -1,32 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import PatientDetailsForm from './PatientDetailsForm';
-import NewCallDialog from './NewCallDialog';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   Box,
   Button,
-  Card,
-  CardContent,
-  Grid,
   Paper,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
+  Grid,
   Chip,
   TextField,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
   IconButton,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
+import { PatientContext } from '../context/PatientContext';
+import { savePatientData } from '../utils/api';
 
-function CallCenterDashboard() {
+const CallCenterDashboard = () => {
   const [newCallDialogOpen, setNewCallDialogOpen] = useState(false);
   const [newPatientDetails, setNewPatientDetails] = useState({
     name: '',
@@ -45,6 +42,8 @@ function CallCenterDashboard() {
     updatePatientDetails,
     dispatchAmbulanceToLocation,
   } = useEmergency();
+
+  const { addPatient } = useContext(PatientContext);
 
   const [emergencyLocation, setEmergencyLocation] = useState(null);
   const [ambulanceLocation, setAmbulanceLocation] = useState(null);
@@ -146,6 +145,20 @@ function CallCenterDashboard() {
       }
     } catch (error) {
       console.error('Error in handleSubmitNewCall:', error);
+    }
+
+    const newCall = {
+      id: Date.now().toString(),
+      number: '123-456-7890',
+      time: new Date().toLocaleTimeString(),
+      date: new Date().toLocaleDateString(),
+      address: '123 Main St',
+    };
+    addPatient(newCall);
+    try {
+      await savePatientData(newCall);
+    } catch (error) {
+      console.error('Failed to save patient data', error);
     }
   };
 
@@ -426,7 +439,6 @@ function CallCenterDashboard() {
       </Dialog>
     </Box>
   );
-}
-
+};
 
 export default CallCenterDashboard;
