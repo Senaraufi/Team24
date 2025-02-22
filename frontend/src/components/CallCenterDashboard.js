@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import PatientDetailsForm from './PatientDetailsForm';
+import NewCallDialog from './NewCallDialog';
 import { 
   Box,
   Button,
@@ -25,6 +27,13 @@ import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
 
 function CallCenterDashboard() {
+  const [newCallDialogOpen, setNewCallDialogOpen] = useState(false);
+  const [newPatientDetails, setNewPatientDetails] = useState({
+    name: '',
+    age: '',
+    phone: '',
+    symptoms: ''
+  });
   const {
     activeCall,
     transcript,
@@ -80,8 +89,22 @@ function CallCenterDashboard() {
   };
 
   const handleEditDetails = () => {
-    setEditedPatientDetails(patientDetails);
+    setEditedPatientDetails(patientDetails || {});
     setEditingDetails(true);
+  };
+
+  const handleNewPatientDetailsChange = (field) => (event) => {
+    setNewPatientDetails({
+      ...newPatientDetails,
+      [field]: event.target.value
+    });
+  };
+
+  const handlePatientDetailsChange = (field) => (event) => {
+    setEditedPatientDetails({
+      ...editedPatientDetails,
+      [field]: event.target.value
+    });
   };
 
   const handleSaveDetails = () => {
@@ -91,9 +114,19 @@ function CallCenterDashboard() {
   };
 
   const handleStartCall = async () => {
+    setNewCallDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setNewCallDialogOpen(false);
+  };
+
+  const handleSubmitNewCall = async () => {
     await startEmergencyCall();
-    // In a real app, we would get the actual location from the emergency call
     setEmergencyLocation({ lat: 53.3498, lng: -6.2603 });
+    setEditedPatientDetails(newPatientDetails);
+    updatePatientDetails(newPatientDetails);
+    setNewCallDialogOpen(false);
   };
 
   const handleDispatchAmbulance = async () => {
@@ -313,8 +346,54 @@ function CallCenterDashboard() {
           </Paper>
         </Grid>
       </Grid>
+      <Dialog open={newCallDialogOpen} onClose={handleCloseDialog}>
+        <DialogTitle>Start New Emergency Call</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Patient Name"
+            type="text"
+            fullWidth
+            value={newPatientDetails.name}
+            onChange={handleNewPatientDetailsChange('name')}
+          />
+          <TextField
+            margin="dense"
+            label="Age"
+            type="number"
+            fullWidth
+            value={newPatientDetails.age}
+            onChange={handleNewPatientDetailsChange('age')}
+          />
+          <TextField
+            margin="dense"
+            label="Phone Number"
+            type="tel"
+            fullWidth
+            value={newPatientDetails.phone}
+            onChange={handleNewPatientDetailsChange('phone')}
+          />
+          <TextField
+            margin="dense"
+            label="Initial Symptoms"
+            multiline
+            rows={4}
+            fullWidth
+            value={newPatientDetails.symptoms}
+            onChange={handleNewPatientDetailsChange('symptoms')}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleSubmitNewCall} variant="contained" color="primary">
+            Start Call
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
+
 
 export default CallCenterDashboard;

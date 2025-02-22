@@ -24,8 +24,50 @@ const theme = createTheme({
     secondary: {
       main: '#dc004e',
     },
+    success: {
+      main: '#2e7d32',
+    },
+    warning: {
+      main: '#ed6c02',
+    },
+    error: {
+      main: '#d32f2f',
+    },
     background: {
       default: '#f5f5f5',
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    h4: {
+      fontWeight: 700,
+    },
+    h6: {
+      fontWeight: 600,
+    },
+    body1: {
+      fontSize: '1rem',
+    },
+    body2: {
+      fontSize: '0.875rem',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          padding: '10px',
+          borderRadius: 8,
+        },
+      },
     },
   },
 });
@@ -42,7 +84,7 @@ function App() {
       <CssBaseline />
       <EmergencyProvider>
         <Box sx={{ flexGrow: 1 }}>
-          <AppBar position="fixed">
+          <AppBar position="static" sx={{ mb: 2, height: 56 }}>
             <Toolbar>
               <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                 Emergency Response System
