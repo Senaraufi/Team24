@@ -62,6 +62,13 @@ export function EmergencyProvider({ children }) {
     }
   };
 
+  const endEmergencyCall = () => {
+    setActiveCall(false);
+    setPatientDetails(null);
+    setSymptoms([]);
+    setSeverityScore(0);
+  };
+
   const value = {
     socket,
     activeCall,
@@ -72,6 +79,7 @@ export function EmergencyProvider({ children }) {
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
+    endEmergencyCall,
   };
 
   return (
