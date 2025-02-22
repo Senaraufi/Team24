@@ -1,127 +1,192 @@
-import React, { useState, useEffect } from 'react';
-import {
+import React, { useState } from 'react';
+import { 
   Box,
+  Button,
+  Card,
+  CardContent,
+  Grid,
   Paper,
   Typography,
-  Grid,
-  Button,
   List,
   ListItem,
   ListItemText,
-  Alert,
+  Chip,
 } from '@mui/material';
-import { socket } from '../services/socket';
+import { useEmergency } from '../context/EmergencyContext';
+import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
+import EmergencyMap from './EmergencyMap';
 
-const CallCenterDashboard = () => {
-  const [activeCall, setActiveCall] = useState(null);
-  const [transcript, setTranscript] = useState([]);
-  const [patientDetails, setPatientDetails] = useState({});
-  const [urgencyLevel, setUrgencyLevel] = useState(null);
+function CallCenterDashboard() {
+  const {
+    activeCall,
+    transcript,
+    patientDetails,
+    symptoms,
+    severityScore,
+    dispatchInfo,
+    startEmergencyCall,
+  } = useEmergency();
 
-  useEffect(() => {
-    // Listen for real-time updates
-    socket.on('transcript_update', (data) => {
-      setTranscript(prev => [...prev, data.transcript]);
-      setPatientDetails(data.patient_details);
-      setUrgencyLevel(data.urgency_level);
-    });
-
-    return () => {
-      socket.off('transcript_update');
-    };
-  }, []);
+  const [emergencyLocation, setEmergencyLocation] = useState(null);
+  const [ambulanceLocation, setAmbulanceLocation] = useState(null);
 
   const handleStartCall = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/start-call', {
-        method: 'POST',
-      });
-      const data = await response.json();
-      setActiveCall(data.call_id);
-    } catch (error) {
-      console.error('Error starting call:', error);
-    }
+    await startEmergencyCall();
+    // In a real app, we would get the actual location from the emergency call
+    setEmergencyLocation({ lat: 53.3498, lng: -6.2603 });
   };
 
   const handleDispatchAmbulance = async () => {
     if (!activeCall) return;
 
-    try {
-      await fetch('http://localhost:5000/api/dispatch-ambulance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          call_id: activeCall,
-          location: patientDetails.location,
-        }),
-      });
-    } catch (error) {
-      console.error('Error dispatching ambulance:', error);
+    const location = { lat: 53.3498, lng: -6.2603 }; // Dublin city center
+    const nearest = await findNearestAmbulance(location);
+    
+    if (nearest) {
+      await dispatchAmbulance(activeCall, location);
+      // In a real app, we would get the actual ambulance location
+      setAmbulanceLocation({ lat: 53.3488, lng: -6.2613 });
     }
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Call Center Dashboard
-      </Typography>
-
+    <Box sx={{ mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          Call Center Dashboard
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleStartCall}
+          disabled={activeCall}
+        >
+          Start New Call
+        </Button>
+      </Box>
+      
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: '70vh', overflow: 'auto' }}>
-            <Typography variant="h6">Live Transcript</Typography>
-            <List>
-              {transcript.map((line, index) => (
-                <ListItem key={index}>
-                  <ListItemText primary={line} />
-                </ListItem>
-              ))}
-            </List>
+          <Paper sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              Emergency Map
+            </Typography>
+            <EmergencyMap
+              emergencyLocation={emergencyLocation}
+              ambulanceLocation={ambulanceLocation}
+            />
           </Paper>
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6">Patient Details</Typography>
-            {Object.entries(patientDetails).map(([key, value]) => (
-              <Typography key={key}>
-                {key}: {value}
-              </Typography>
-            ))}
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Call Control
+            </Typography>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleDispatchAmbulance}
+              disabled={!activeCall}
+              fullWidth
+            >
+              Dispatch Ambulance
+            </Button>
+            {activeCall && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
+                <Typography color="success.dark">
+                  Active Call in Progress
+                </Typography>
+              </Box>
+            )}
           </Paper>
+        </Grid>
 
-          {urgencyLevel && (
-            <Alert severity={urgencyLevel === 'HIGH' ? 'error' : 'warning'} sx={{ mb: 2 }}>
-              Urgency Level: {urgencyLevel}
-            </Alert>
-          )}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Patient Details
+            </Typography>
+            {patientDetails ? (
+              <List>
+                <ListItem>
+                  <ListItemText primary="Name" secondary={patientDetails.name} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Age" secondary={patientDetails.age} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Location" secondary={patientDetails.location} />
+                </ListItem>
+              </List>
+            ) : (
+              <Typography color="text.secondary">No active call</Typography>
+            )}
+          </Paper>
+        </Grid>
 
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            onClick={handleStartCall}
-            disabled={activeCall !== null}
-            sx={{ mb: 2 }}
-          >
-            Start New Call
-          </Button>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Emergency Details
+            </Typography>
+            {activeCall ? (
+              <Box sx={{ '& > *': { mb: 2 } }}>
+                <div>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Symptoms
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {symptoms.map((symptom, index) => (
+                      <Chip
+                        key={index}
+                        label={symptom}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </div>
 
-          <Button
-            variant="contained"
-            color="secondary"
-            fullWidth
-            onClick={handleDispatchAmbulance}
-            disabled={!activeCall}
-          >
-            Dispatch Ambulance
-          </Button>
+                <div>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Severity Score
+                  </Typography>
+                  <Chip
+                    label={`${severityScore}/10`}
+                    color={severityScore >= 8 ? 'error' : severityScore >= 5 ? 'warning' : 'success'}
+                  />
+                </div>
+
+                {transcript && (
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Call Transcript
+                    </Typography>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        maxHeight: 200,
+                        overflow: 'auto',
+                        bgcolor: 'grey.50'
+                      }}
+                    >
+                      <Typography variant="body2">
+                        {transcript}
+                      </Typography>
+                    </Paper>
+                  </div>
+                )}
+              </Box>
+            ) : (
+              <Typography color="text.secondary">No active call</Typography>
+            )}
+          </Paper>
         </Grid>
       </Grid>
     </Box>
   );
-};
+}
 
 export default CallCenterDashboard;

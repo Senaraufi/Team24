@@ -1,51 +1,43 @@
-import axios from 'axios';
+export const API_URL = 'http://127.0.0.1:5001';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+export async function findNearestAmbulance(location) {
+  try {
+    const response = await fetch(`${API_URL}/api/find-ambulance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error finding nearest ambulance:', error);
+    return null;
+  }
+}
 
-export const api = {
-    startCall: async () => {
-        const response = await axios.post(`${API_BASE_URL}/start-call`);
-        return response.data;
-    },
+export async function dispatchAmbulance(callId, location) {
+  try {
+    const response = await fetch(`${API_URL}/api/dispatch-ambulance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ call_id: callId, location }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error dispatching ambulance:', error);
+    return null;
+  }
+}
 
-    findNearestAmbulance: async (location) => {
-        const response = await axios.post(`${API_BASE_URL}/find-ambulance`, { location });
-        return response.data;
-    },
-
-    dispatchAmbulance: async (callId, location) => {
-        const response = await axios.post(`${API_BASE_URL}/dispatch-ambulance`, {
-            call_id: callId,
-            location
-        });
-        return response.data;
-    },
-
-    updateAmbulanceLocation: async (ambulanceId, location) => {
-        const response = await axios.post(`${API_BASE_URL}/update-ambulance-location`, {
-            ambulance_id: ambulanceId,
-            location
-        });
-        return response.data;
-    },
-
-    completeDispatch: async (dispatchId) => {
-        const response = await axios.post(`${API_BASE_URL}/complete-dispatch`, {
-            dispatch_id: dispatchId
-        });
-        return response.data;
-    },
-
-    updateDoctorStatus: async (doctorId, status) => {
-        const response = await axios.post(`${API_BASE_URL}/doctor-status`, {
-            doctor_id: doctorId,
-            status
-        });
-        return response.data;
-    },
-
-    getCallHistory: async () => {
-        const response = await axios.get(`${API_BASE_URL}/call-history`);
-        return response.data;
-    }
-};
+export async function updateDoctorStatus(doctorId, status) {
+  try {
+    const response = await fetch(`${API_URL}/api/doctor-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctor_id: doctorId, status }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating doctor status:', error);
+    return null;
+  }
+}

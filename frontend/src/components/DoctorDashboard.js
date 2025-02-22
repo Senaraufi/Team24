@@ -1,142 +1,199 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
   Box,
-  Paper,
-  Typography,
-  Grid,
+  Button,
   Card,
   CardContent,
-  Switch,
-  FormControlLabel,
   Chip,
-  List,
-  ListItem,
-  ListItemText,
-  Alert,
+  FormControlLabel,
+  Grid,
+  Paper,
+  Switch,
+  TextField,
+  Typography
 } from '@mui/material';
-import { socket } from '../services/socket';
+import { useEmergency } from '../context/EmergencyContext';
+import { updateDoctorStatus } from '../services/api';
 
-const DoctorDashboard = () => {
+function DoctorDashboard() {
+  const {
+    activeCall,
+    patientDetails,
+    symptoms,
+    severityScore,
+    dispatchInfo,
+  } = useEmergency();
+
+  const [doctorId] = useState('doc1'); // In a real app, this would come from authentication
   const [isAvailable, setIsAvailable] = useState(true);
-  const [activeEmergencies, setActiveEmergencies] = useState([]);
-  const [doctorId] = useState('DOC-' + Math.random().toString(36).substr(2, 9));
-
-  useEffect(() => {
-    socket.on('new_emergency', (data) => {
-      setActiveEmergencies(prev => [...prev, data]);
-    });
-
-    socket.on('ambulance_dispatched', (data) => {
-      // Update emergency status when ambulance is dispatched
-      setActiveEmergencies(prev =>
-        prev.map(emergency =>
-          emergency.call_id === data.call_id
-            ? { ...emergency, ambulance_status: data }
-            : emergency
-        )
-      );
-    });
-
-    return () => {
-      socket.off('new_emergency');
-      socket.off('ambulance_dispatched');
-    };
-  }, []);
+  const [instructions, setInstructions] = useState('');
 
   const handleAvailabilityChange = async (event) => {
     const newStatus = event.target.checked;
     setIsAvailable(newStatus);
+    await updateDoctorStatus(doctorId, newStatus ? 'available' : 'unavailable');
+  };
 
-    try {
-      await fetch('http://localhost:5000/api/doctor-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          doctor_id: doctorId,
-          status: newStatus ? 'available' : 'unavailable',
-        }),
-      });
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
+  const handleInstructionsChange = (event) => {
+    setInstructions(event.target.value);
+  };
+
+  const handleSendInstructions = () => {
+    // In a real app, this would send instructions to the ambulance crew
+    console.log('Sending instructions:', instructions);
+    setInstructions('');
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Doctor's Dashboard
-      </Typography>
+    <Box sx={{ mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          Doctor's Dashboard
+        </Typography>
+        <Card sx={{ bgcolor: isAvailable ? 'success.light' : 'error.light', px: 2, py: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isAvailable}
+                onChange={handleAvailabilityChange}
+                color={isAvailable ? 'success' : 'error'}
+              />
+            }
+            label={
+              <Typography color={isAvailable ? 'success.dark' : 'error.dark'}>
+                {isAvailable ? 'Available' : 'Unavailable'}
+              </Typography>
+            }
+          />
+        </Card>
+      </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isAvailable}
-                  onChange={handleAvailabilityChange}
-                  color="primary"
+        <Grid item xs={12} md={6}>
+          {activeCall ? (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Current Emergency
+              </Typography>
+              <Box sx={{ mb: 3 }}>
+                <Alert severity="warning" icon={false} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: 'warning.main',
+                        animation: 'pulse 2s infinite',
+                        mr: 2
+                      }}
+                    />
+                    <Typography variant="body2">
+                      Emergency in Progress
+                    </Typography>
+                  </Box>
+                </Alert>
+              </Box>
+
+              {patientDetails && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Patient Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography color="text.secondary">Name:</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography>{patientDetails.name}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography color="text.secondary">Age:</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography>{patientDetails.age}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography color="text.secondary">Location:</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography>{patientDetails.location}</Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Symptoms
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {symptoms.map((symptom, index) => (
+                    <Chip
+                      key={index}
+                      label={symptom}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Severity
+                </Typography>
+                <Chip
+                  label={`Score: ${severityScore}/10`}
+                  color={
+                    severityScore >= 8 ? 'error' :
+                    severityScore >= 5 ? 'warning' : 'success'
+                  }
                 />
-              }
-              label={`Status: ${isAvailable ? 'Available' : 'Unavailable'}`}
-            />
-          </Paper>
+              </Box>
+            </Paper>
+          ) : (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                No Active Emergency
+              </Typography>
+              <Typography color="text.secondary">
+                You will be notified when a new emergency arrives.
+              </Typography>
+            </Paper>
+          )}
         </Grid>
 
-        <Grid item xs={12}>
-          <Typography variant="h6" gutterBottom>
-            Active Emergencies
-          </Typography>
-          <Grid container spacing={2}>
-            {activeEmergencies.map((emergency) => (
-              <Grid item xs={12} md={6} key={emergency.call_id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Emergency Case #{emergency.call_id}
-                      <Chip
-                        label={emergency.urgency_level}
-                        color={emergency.urgency_level === 'HIGH' ? 'error' : 'warning'}
-                        sx={{ ml: 1 }}
-                      />
-                    </Typography>
-
-                    <Typography variant="subtitle1" gutterBottom>
-                      Patient Details:
-                    </Typography>
-                    {Object.entries(emergency.patient_details).map(([key, value]) => (
-                      <Typography key={key} variant="body2">
-                        {key}: {value}
-                      </Typography>
-                    ))}
-
-                    <Typography variant="subtitle1" sx={{ mt: 2 }}>
-                      Symptoms:
-                    </Typography>
-                    <List dense>
-                      {emergency.symptoms.map((symptom, index) => (
-                        <ListItem key={index}>
-                          <ListItemText primary={symptom} />
-                        </ListItem>
-                      ))}
-                    </List>
-
-                    {emergency.ambulance_status && (
-                      <Alert severity="info" sx={{ mt: 2 }}>
-                        Ambulance ETA: {emergency.ambulance_status.estimated_arrival}
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Medical Instructions
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                multiline
+                rows={4}
+                value={instructions}
+                onChange={handleInstructionsChange}
+                placeholder="Enter medical instructions for the ambulance crew..."
+                variant="outlined"
+                fullWidth
+              />
+              <Button
+                variant="contained"
+                onClick={handleSendInstructions}
+                disabled={!activeCall || !instructions.trim()}
+                fullWidth
+              >
+                Send Instructions
+              </Button>
+            </Box>
+          </Paper>
         </Grid>
       </Grid>
     </Box>
   );
-};
+}
 
 export default DoctorDashboard;
