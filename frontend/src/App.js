@@ -15,6 +15,7 @@ import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import DialerRecords from './components/DialerRecords';
 import { EmergencyProvider } from './context/EmergencyContext';
+import { PatientProvider } from './context/PatientContext';
 
 const theme = createTheme({
   palette: {
@@ -84,30 +85,32 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <EmergencyProvider>
-        <Box sx={{ flexGrow: 1 }}>
-          <AppBar position="fixed" sx={{ mb: 2, height: 56 }}>
-            <Toolbar sx={{ justifyContent: 'center' }}>
-              <Typography variant="h6" component="div">
-                Emergency Response System
-              </Typography>
-            </Toolbar>
-            <Tabs 
-              value={currentTab} 
-              onChange={handleTabChange}
-              centered
-              sx={{ bgcolor: 'primary.dark' }}
-            >
-              <Tab label="Call Center" />
-              <Tab label="Doctor Dashboard" />
-              <Tab label="Dialer Records" />
-            </Tabs>
-          </AppBar>
-          <Container maxWidth="xl" sx={{ mt: 12, mb: 4, pt: 2 }}>
-            {currentTab === 0 && <CallCenterDashboard />}
-            {currentTab === 1 && <DoctorDashboard />}
-            {currentTab === 2 && <DialerRecords />}
-          </Container>
-        </Box>
+        <PatientProvider>
+          <Box sx={{ flexGrow: 1 }}>
+            <AppBar position="fixed" sx={{ mb: 2, height: 56 }}>
+              <Toolbar sx={{ justifyContent: 'center' }}>
+                <Typography variant="h6" component="div">
+                  Emergency Response System
+                </Typography>
+              </Toolbar>
+              <Tabs 
+                value={currentTab} 
+                onChange={handleTabChange}
+                centered
+                sx={{ bgcolor: 'primary.dark' }}
+              >
+                <Tab label="Call Center" />
+                <Tab label="Doctor Dashboard" />
+                <Tab label="Dialer Records" />
+              </Tabs>
+            </AppBar>
+            <Container maxWidth="xl" sx={{ mt: 12, mb: 4, pt: 2 }}>
+              {currentTab === 0 && <CallCenterDashboard />}
+              {currentTab === 1 && <DoctorDashboard />}
+              {currentTab === 2 && <DialerRecords />}
+            </Container>
+          </Box>
+        </PatientProvider>
       </EmergencyProvider>
     </ThemeProvider>
   );
