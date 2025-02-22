@@ -115,15 +115,8 @@ export function EmergencyProvider({ children }) {
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
-<<<<<<< HEAD
-    endEmergencyCall,
-=======
     dispatchAmbulanceToLocation,
-<<<<<<< HEAD
     endEmergencyCall,
-=======
->>>>>>> 98cf38a804407db21d4f1c68f8be191e6f2e9807
->>>>>>> a3e8b4ced1e58a13b7df11283456d6033518271d
   };
 
   return (
