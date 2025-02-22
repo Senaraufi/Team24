@@ -43,6 +43,7 @@ function CallCenterDashboard() {
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
+    dispatchAmbulanceToLocation,
   } = useEmergency();
 
   const [emergencyLocation, setEmergencyLocation] = useState(null);
@@ -149,15 +150,28 @@ function CallCenterDashboard() {
   };
 
   const handleDispatchAmbulance = async () => {
-    if (!activeCall) return;
+    console.log('Handling ambulance dispatch...');
+    if (!activeCall) {
+      console.error('No active call to dispatch ambulance for');
+      return;
+    }
 
-    const location = { lat: 53.3498, lng: -6.2603 }; // Dublin city center
-    const nearest = await findNearestAmbulance(location);
-    
-    if (nearest) {
-      await dispatchAmbulance(activeCall, location);
-      // In a real app, we would get the actual ambulance location
-      setAmbulanceLocation({ lat: 53.3488, lng: -6.2613 });
+    if (!emergencyLocation) {
+      console.error('No emergency location set');
+      return;
+    }
+
+    try {
+      const dispatchResult = await dispatchAmbulanceToLocation(emergencyLocation);
+      
+      if (dispatchResult) {
+        console.log('Ambulance dispatched successfully:', dispatchResult);
+        setAmbulanceLocation(dispatchResult.current_location);
+      } else {
+        console.error('Failed to dispatch ambulance');
+      }
+    } catch (error) {
+      console.error('Error in handleDispatchAmbulance:', error);
     }
   };
 
