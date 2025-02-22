@@ -62,11 +62,39 @@ export function EmergencyProvider({ children }) {
     }
   };
 
+<<<<<<< HEAD
   const endEmergencyCall = () => {
     setActiveCall(false);
     setPatientDetails(null);
     setSymptoms([]);
     setSeverityScore(0);
+=======
+  const dispatchAmbulanceToLocation = async (location) => {
+    console.log('Dispatching ambulance to location:', location);
+    try {
+      // Simulate finding nearest ambulance
+      const nearbyAmbulance = {
+        id: 'AMB-' + Math.floor(Math.random() * 1000),
+        location: {
+          lat: location.lat + (Math.random() * 0.01 - 0.005),
+          lng: location.lng + (Math.random() * 0.01 - 0.005)
+        }
+      };
+
+      // Update dispatch info
+      const dispatchData = {
+        ambulance_id: nearbyAmbulance.id,
+        estimated_arrival: '10 minutes',
+        current_location: nearbyAmbulance.location
+      };
+
+      setDispatchInfo(dispatchData);
+      return dispatchData;
+    } catch (error) {
+      console.error('Error dispatching ambulance:', error);
+      return null;
+    }
+>>>>>>> 98cf38a804407db21d4f1c68f8be191e6f2e9807
   };
 
   const value = {
@@ -79,7 +107,11 @@ export function EmergencyProvider({ children }) {
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
+<<<<<<< HEAD
     endEmergencyCall,
+=======
+    dispatchAmbulanceToLocation,
+>>>>>>> 98cf38a804407db21d4f1c68f8be191e6f2e9807
   };
 
   return (
