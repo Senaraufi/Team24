@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
+import DialerRecords from './components/DialerRecords';
 import { EmergencyProvider } from './context/EmergencyContext';
 
 const theme = createTheme({
@@ -84,9 +85,9 @@ function App() {
       <CssBaseline />
       <EmergencyProvider>
         <Box sx={{ flexGrow: 1 }}>
-          <AppBar position="static" sx={{ mb: 2, height: 56 }}>
-            <Toolbar>
-              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <AppBar position="fixed" sx={{ mb: 2, height: 56 }}>
+            <Toolbar sx={{ justifyContent: 'center' }}>
+              <Typography variant="h6" component="div">
                 Emergency Response System
               </Typography>
             </Toolbar>
@@ -98,10 +99,13 @@ function App() {
             >
               <Tab label="Call Center" />
               <Tab label="Doctor Dashboard" />
+              <Tab label="Dialer Records" />
             </Tabs>
           </AppBar>
           <Container maxWidth="xl" sx={{ mt: 12, mb: 4, pt: 2 }}>
-            {currentTab === 0 ? <CallCenterDashboard /> : <DoctorDashboard />}
+            {currentTab === 0 && <CallCenterDashboard />}
+            {currentTab === 1 && <DoctorDashboard />}
+            {currentTab === 2 && <DialerRecords />}
           </Container>
         </Box>
       </EmergencyProvider>
