@@ -32,17 +32,33 @@ export function EmergencyProvider({ children }) {
   }, []);
 
   const startEmergencyCall = async () => {
+    console.log('Starting emergency call...');
     try {
-      const response = await fetch(`${API_URL}/api/start-call`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await response.json();
-      setActiveCall(data.call_id);
-      return data.call_id;
+      // First set active call to indicate we're starting
+      const callId = Date.now().toString(); // Generate a temporary ID
+      setActiveCall(callId);
+      console.log('Set active call ID:', callId);
+      
+      // For now, we'll just return the temporary ID
+      // Later we can integrate with the actual backend
+      return callId;
     } catch (error) {
       console.error('Error starting emergency call:', error);
       return null;
+    }
+  };
+
+  const updatePatientDetails = async (details) => {
+    console.log('Updating patient details:', details);
+    try {
+      setPatientDetails(details);
+      console.log('Patient details updated in state');
+      // For now, we'll just update the local state
+      // Later we can integrate with the actual backend
+      return true;
+    } catch (error) {
+      console.error('Error updating patient details:', error);
+      return false;
     }
   };
 
@@ -55,6 +71,7 @@ export function EmergencyProvider({ children }) {
     severityScore,
     dispatchInfo,
     startEmergencyCall,
+    updatePatientDetails,
   };
 
   return (

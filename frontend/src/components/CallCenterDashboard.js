@@ -122,11 +122,30 @@ function CallCenterDashboard() {
   };
 
   const handleSubmitNewCall = async () => {
-    await startEmergencyCall();
-    setEmergencyLocation({ lat: 53.3498, lng: -6.2603 });
-    setEditedPatientDetails(newPatientDetails);
-    updatePatientDetails(newPatientDetails);
-    setNewCallDialogOpen(false);
+    console.log('Starting new call with details:', newPatientDetails);
+    try {
+      const callId = await startEmergencyCall();
+      console.log('Got call ID:', callId);
+      
+      if (callId) {
+        console.log('Setting emergency location...');
+        setEmergencyLocation({ lat: 53.3498, lng: -6.2603 });
+        
+        console.log('Updating patient details...');
+        const updated = await updatePatientDetails(newPatientDetails);
+        
+        if (updated) {
+          console.log('Successfully updated patient details');
+          setNewCallDialogOpen(false);
+        } else {
+          console.error('Failed to update patient details');
+        }
+      } else {
+        console.error('Failed to start emergency call');
+      }
+    } catch (error) {
+      console.error('Error in handleSubmitNewCall:', error);
+    }
   };
 
   const handleDispatchAmbulance = async () => {
