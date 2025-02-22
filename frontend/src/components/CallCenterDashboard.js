@@ -189,6 +189,14 @@ const CallCenterDashboard = () => {
     }
   };
 
+  const handleEndCall = () => {
+    endEmergencyCall();
+    setEmergencyLocation(null);
+    setAmbulanceLocation(null);
+    setLiveTranscript('');
+    setExtractedSymptoms([]);
+  };
+
   return (
     <Box sx={{ mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -212,6 +220,16 @@ const CallCenterDashboard = () => {
           >
             Start New Call
           </Button>
+          {activeCall && (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleEndCall}
+              sx={{ ml: 2 }}
+            >
+              End Call
+            </Button>
+          )}
         </Box>
       </Box>
       
