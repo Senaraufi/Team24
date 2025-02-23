@@ -11,12 +11,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
   List,
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
+import { Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
@@ -234,147 +233,134 @@ const CallCenterDashboard = () => {
                 </Typography>
               </Box>
             )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
+            <Box sx={{ mt: 2, border: '1px solid #ccc', borderRadius: 1, p: 2, maxHeight: '200px', overflowY: 'auto' }}>
+              <Typography variant="h6" gutterBottom>
                 Patient Details
               </Typography>
-              {patientDetails && !editingDetails && (
-                <IconButton onClick={handleEditDetails} size="small">
-                  {verifiedDetails ? <CheckIcon color="success" /> : <EditIcon />}
-                </IconButton>
+              {patientDetails ? (
+                <List>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Name:" 
+                      secondary={patientDetails.name || 'Not provided'}
+                      secondaryTypographyProps={{
+                        color: verifiedDetails ? 'success.main' : 'text.secondary'
+                      }}
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Age:" 
+                      secondary={patientDetails.age || 'Not provided'}
+                      secondaryTypographyProps={{
+                        color: verifiedDetails ? 'success.main' : 'text.secondary'
+                      }}
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Location:" 
+                      secondary={patientDetails.location || 'Not provided'}
+                      secondaryTypographyProps={{
+                        color: verifiedDetails ? 'success.main' : 'text.secondary'
+                      }}
+                    />
+                  </ListItem>
+                </List>
+              ) : (
+                <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
-            {patientDetails ? (
-              <List>
-                <ListItem>
-                  <ListItemText 
-                    primary="Name" 
-                    secondary={patientDetails.name}
-                    secondaryTypographyProps={{
-                      color: verifiedDetails ? 'success.main' : 'text.secondary'
-                    }}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="Age" 
-                    secondary={patientDetails.age}
-                    secondaryTypographyProps={{
-                      color: verifiedDetails ? 'success.main' : 'text.secondary'
-                    }}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="Location" 
-                    secondary={patientDetails.location}
-                    secondaryTypographyProps={{
-                      color: verifiedDetails ? 'success.main' : 'text.secondary'
-                    }}
-                  />
-                </ListItem>
-              </List>
-            ) : (
-              <Typography color="text.secondary">No active call</Typography>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Emergency Details
-            </Typography>
-            {activeCall ? (
-              <Box sx={{ '& > *': { mb: 2 } }}>
-                <div>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Symptoms
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {symptoms.map((symptom, index) => (
-                      <Chip
-                        key={index}
-                        label={symptom}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Box>
-                </div>
-
-                <div>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Severity Score
-                  </Typography>
-                  <Chip
-                    label={`${severityScore}/10`}
-                    color={severityScore >= 8 ? 'error' : severityScore >= 5 ? 'warning' : 'success'}
-                  />
-                </div>
-
-                <div>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Live Transcription
-                  </Typography>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 2,
-                      maxHeight: 200,
-                      overflow: 'auto',
-                      bgcolor: 'grey.50',
-                      position: 'relative'
-                    }}
-                  >
-                    {activeCall && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          px: 1,
-                          py: 0.5,
-                          borderRadius: 1,
-                          bgcolor: 'success.main',
-                          color: 'white',
-                          fontSize: '0.75rem'
-                        }}
-                      >
-                        Live
-                      </Box>
-                    )}
-                    <Typography variant="body2">
-                      {liveTranscript || 'Waiting for call to start...'}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Emergency Details
+              </Typography>
+              {activeCall ? (
+                <Box sx={{ '& > *': { mb: 2 } }}>
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Symptoms
                     </Typography>
-                  </Paper>
-                </div>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {symptoms.map((symptom, index) => (
+                        <Chip
+                          key={index}
+                          label={symptom}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  </div>
 
-                <div>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Extracted Symptoms
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {extractedSymptoms.map((symptom, index) => (
-                      <Chip
-                        key={index}
-                        label={symptom.text}
-                        color={symptom.severity === 'high' ? 'error' : 
-                               symptom.severity === 'medium' ? 'warning' : 'default'}
-                        variant="outlined"
-                      />
-                    ))}
-                  </Box>
-                </div>
-              </Box>
-            ) : (
-              <Typography color="text.secondary">No active call</Typography>
-            )}
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Severity Score
+                    </Typography>
+                    <Chip
+                      label={`${severityScore}/10`}
+                      color={severityScore >= 8 ? 'error' : severityScore >= 5 ? 'warning' : 'success'}
+                    />
+                  </div>
+
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Live Transcription
+                    </Typography>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        maxHeight: 200,
+                        overflow: 'auto',
+                        bgcolor: 'grey.50',
+                        position: 'relative'
+                      }}
+                    >
+                      {activeCall && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 1,
+                            bgcolor: 'success.main',
+                            color: 'white',
+                            fontSize: '0.75rem'
+                          }}
+                        >
+                          Live
+                        </Box>
+                      )}
+                      <Typography variant="body2">
+                        {liveTranscript || 'Waiting for call to start...'}
+                      </Typography>
+                    </Paper>
+                  </div>
+
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Extracted Symptoms
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {extractedSymptoms.map((symptom, index) => (
+                        <Chip
+                          key={index}
+                          label={symptom.text}
+                          color={symptom.severity === 'high' ? 'error' : 
+                                symptom.severity === 'medium' ? 'warning' : 'default'}
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  </div>
+                </Box>
+              ) : (
+                <Typography color="text.secondary">No active call</Typography>
+              )}
+            </Box>
           </Paper>
         </Grid>
       </Grid>
