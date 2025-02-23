@@ -210,16 +210,8 @@ const NearbyHospitals = ({ patientDetails }) => {
                     </Typography>
                     <Chip 
                       size="small"
-                      label={hospital.type || 'General'}
-                      color={hospital.type === 'Emergency' ? 'warning' : 'default'}
-=======
-                      {hospital.tags.name || 'Unnamed Hospital'}
-                    </Typography>
-                    <Chip 
-                      size="small"
-                      label={hospital.tags.amenity}
-                      color={hospital.tags.amenity === 'hospital' ? 'warning' : 'default'}
->>>>>>> 4af14709ad0ab8076ad2cba4883f8177dbf53ea7
+                      label={hospital.tags?.amenity === 'hospital' ? 'Hospital' : hospital.tags?.healthcare || 'Medical'}
+                      color={hospital.tags?.emergency === 'yes' ? 'warning' : 'default'}
                     />
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -228,16 +220,12 @@ const NearbyHospitals = ({ patientDetails }) => {
                       {typeof hospital.distance === 'number' ? `${hospital.distance.toFixed(2)} km away` : 'Distance unavailable'}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <AccessTimeIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
                     <Typography variant="body2" color="text.secondary">
                       ETA: {typeof hospital.estimatedTime === 'number' ? `${hospital.estimatedTime} mins` : 'Time unavailable'}
                     </Typography>
                   </Box>
-<<<<<<< HEAD
-
-=======
->>>>>>> 4af14709ad0ab8076ad2cba4883f8177dbf53ea7
                 </Box>
               </ListItem>
             ))}          
