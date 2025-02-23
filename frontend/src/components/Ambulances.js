@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, List, ListItem, ListItemText } from '@mui/material';
-import MAPTILER_API_KEY from '../maps.js'; // Updated import path
 
 const mapContainerStyle = {
   width: '100%',
@@ -14,9 +13,25 @@ const center = {
 };
 
 const fetchNearbyHospitals = async (lat, lng) => {
-  const response = await fetch(`https://api.maptiler.com/places/v1/hospitals?key=${MAPTILER_API_KEY}&lat=${lat}&lon=${lng}`);
+  const query = `
+    [out:json];
+    (
+      node["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      way["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      relation["amenity"="hospital"](around:20000, ${lat}, ${lng});
+    );
+    out center;
+  `;
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
   const data = await response.json();
-  return data.features;
+  return data.elements;
+};
+
+const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
+  const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`);
+  const data = await response.json();
+  const route = data.routes[0];
+  return { time: route.duration, distance: route.distance };
 };
 
 const Ambulances = () => {
@@ -39,11 +54,16 @@ const Ambulances = () => {
   }, []);
 
   useEffect(() => {
-    // Fetch nearby hospitals
+    // Fetch nearby hospitals and calculate route times and distances
     const fetchHospitals = async () => {
       try {
         const hospitalsData = await fetchNearbyHospitals(center.lat, center.lng);
-        setHospitals(hospitalsData);
+        const hospitalsWithTimeAndDistance = await Promise.all(hospitalsData.map(async (hospital) => {
+          const { time, distance } = await fetchRouteTimeAndDistance(center.lat, center.lng, hospital.lat, hospital.lon);
+          return { ...hospital, time, distance };
+        }));
+        hospitalsWithTimeAndDistance.sort((a, b) => a.time - b.time);
+        setHospitals(hospitalsWithTimeAndDistance);
       } catch (error) {
         console.error('Failed to fetch hospitals', error);
       }
@@ -57,14 +77,14 @@ const Ambulances = () => {
       <Grid item xs={12} md={8}>
         <Paper sx={{ p: 2, height: '100%' }}>
           <iframe
-            title="MapTiler Map"
-            src={`https://api.maptiler.com/maps/basic-v2/?key=${MAPTILER_API_KEY}#13/${center.lat}/${center.lng}`}
+            title="Map"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
             style={mapContainerStyle}
           ></iframe>
         </Paper>
       </Grid>
       <Grid item xs={12} md={4}>
-        <Paper sx={{ p: 2, height: '100%' }}>
+        <Paper sx={{ p: 2, height: '100%', overflowY: 'auto', maxHeight: '70vh' }}>
           <Typography variant="h6" gutterBottom>
             Available Ambulances
           </Typography>
@@ -85,8 +105,8 @@ const Ambulances = () => {
             {hospitals.map((hospital) => (
               <ListItem key={hospital.id}>
                 <ListItemText
-                  primary={hospital.properties.name}
-                  secondary={`Location: (${hospital.geometry.coordinates[1]}, ${hospital.geometry.coordinates[0]})`}
+                  primary={hospital.tags.name || 'Unnamed Hospital'}
+                  secondary={`Distance: ${(hospital.distance / 1000).toFixed(2)} km - Time: ${Math.round(hospital.time / 60)} mins`}
                 />
               </ListItem>
             ))}

@@ -18,9 +18,36 @@ import {
 import { Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
-import EmergencyMap from './EmergencyMap';
 import { PatientContext } from '../context/PatientContext';
 import { savePatientData } from '../utils/api';
+import './CallCenterDashboard.css'; // Import the CSS file
+
+const center = {
+  lat: 53.3498, // Dublin city center
+  lng: -6.2603,
+};
+
+const fetchNearbyHospitals = async (lat, lng) => {
+  const query = `
+    [out:json];
+    (
+      node["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      way["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      relation["amenity"="hospital"](around:20000, ${lat}, ${lng});
+    );
+    out center;
+  `;
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+  const data = await response.json();
+  return data.elements;
+};
+
+const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
+  const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`);
+  const data = await response.json();
+  const route = data.routes[0];
+  return { time: route.duration, distance: route.distance };
+};
 
 const CallCenterDashboard = () => {
   const [newCallDialogOpen, setNewCallDialogOpen] = useState(false);
@@ -28,7 +55,8 @@ const CallCenterDashboard = () => {
     name: '',
     age: '',
     phone: '',
-    symptoms: ''
+    symptoms: '',
+    address: ''
   });
   const {
     activeCall,
@@ -150,7 +178,7 @@ const CallCenterDashboard = () => {
       number: '123-456-7890',
       time: new Date().toLocaleTimeString(),
       date: new Date().toLocaleDateString(),
-      address: '123 Main St',
+      address: newPatientDetails.address,
     };
     addPatient(newCall);
     try {
@@ -171,6 +199,11 @@ const CallCenterDashboard = () => {
       // In a real app, we would get the actual ambulance location
       setAmbulanceLocation({ lat: 53.3488, lng: -6.2613 });
     }
+  };
+
+  const handleSubmitAddress = () => {
+    console.log('Address submitted:', newPatientDetails.address);
+    // Additional logic to handle address submission can be added here
   };
 
   return (
@@ -201,19 +234,20 @@ const CallCenterDashboard = () => {
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: '100%' }}>
+          <Paper className="map-container">
             <Typography variant="h6" gutterBottom>
               Emergency Map
             </Typography>
-            <EmergencyMap
-              emergencyLocation={emergencyLocation}
-              ambulanceLocation={ambulanceLocation}
-            />
+            <iframe
+              title="Map"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
+              className="map-iframe"
+            ></iframe>
           </Paper>
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
+          <Paper className="call-control-container">
             <Typography variant="h6" gutterBottom>
               Call Control
             </Typography>
@@ -361,6 +395,26 @@ const CallCenterDashboard = () => {
                 <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Address
+              </Typography>
+              <TextField
+                label="Address"
+                fullWidth
+                value={newPatientDetails.address}
+                onChange={handleNewPatientDetailsChange('address')}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSubmitAddress}
+                sx={{ mt: 2 }}
+                fullWidth
+              >
+                Submit Address
+              </Button>
+            </Box>
           </Paper>
         </Grid>
       </Grid>
@@ -400,6 +454,14 @@ const CallCenterDashboard = () => {
             fullWidth
             value={newPatientDetails.symptoms}
             onChange={handleNewPatientDetailsChange('symptoms')}
+          />
+          <TextField
+            margin="dense"
+            label="Address"
+            type="text"
+            fullWidth
+            value={newPatientDetails.address}
+            onChange={handleNewPatientDetailsChange('address')}
           />
         </DialogContent>
         <DialogActions>

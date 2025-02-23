@@ -1,0 +1,17 @@
+.map-container {
+  padding: 16px;
+  height: 100%;
+}
+
+.map-iframe {
+  width: 100%;
+  height: var(--map-height, 70vh); /* Default height is 70vh, can be overridden */
+  border-radius: 4px;
+}
+
+.call-control-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  max-height: var(--map-height, 70vh); /* Match the height of the map */
+}
