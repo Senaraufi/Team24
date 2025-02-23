@@ -39,10 +39,10 @@
 }
 
 .patient-details-box {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   border: 1px solid #ccc;
-  border-radius: 1rem;
-  padding: 1.5rem;
+  border-radius: 0.5rem;
+  padding: 1rem;
   max-height: 150px;
   overflow-y: auto;
 }
