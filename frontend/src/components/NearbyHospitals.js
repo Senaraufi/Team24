@@ -6,8 +6,9 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '70vh',
+  height: '100%',
   borderRadius: '4px',
+  flexGrow: 1
 };
 
 const center = {
@@ -99,9 +100,9 @@ const NearbyHospitals = () => {
   }, [hospitals, selectedLocation]);
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={8}>
-        <Paper sx={{ p: 2, height: '100%' }}>
+    <Grid container spacing={3} sx={{ height: '80vh' }}>
+      <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+        <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <iframe
             title="Map"
             src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
@@ -109,12 +110,34 @@ const NearbyHospitals = () => {
           ></iframe>
         </Paper>
       </Grid>
-      <Grid item xs={12} md={4}>
-        <Paper sx={{ p: 2, height: '100%', overflowY: 'auto', maxHeight: '70vh' }}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <LocalHospitalIcon sx={{ mr: 1 }} />
-            Nearby Hospitals
-          </Typography>
+      <Grid item xs={12} md={4} sx={{ height: '100%' }}>
+        <Paper sx={{ 
+          p: 2, 
+          height: '100%', 
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative'
+        }}>
+          <Box sx={{
+            position: 'sticky',
+            top: 0,
+            backgroundColor: 'background.paper',
+            pt: 2,
+            pb: 2,
+            zIndex: 1,
+            borderBottom: '1px solid',
+            borderColor: 'divider'
+          }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+              <LocalHospitalIcon sx={{ mr: 1 }} />
+              Nearby Hospitals
+            </Typography>
+          </Box>
+          <Box sx={{ 
+            flexGrow: 1, 
+            overflowY: 'auto',
+            mt: 1
+          }}>
           <List>
             {nearestHospitals.map((hospital) => (
               <ListItem key={hospital.id} sx={{ 
@@ -150,6 +173,7 @@ const NearbyHospitals = () => {
               </ListItem>
             ))}          
           </List>
+          </Box>
         </Paper>
       </Grid>
     </Grid>
