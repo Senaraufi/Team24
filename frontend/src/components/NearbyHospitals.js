@@ -8,9 +8,9 @@ import { PatientContext } from '../context/PatientContext';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '100%',
+  height: '70vh',
   borderRadius: '4px',
-  flexGrow: 1
+  border: '1px solid #e0e0e0'
 };
 
 // Function to geocode address using Nominatim
@@ -130,6 +130,8 @@ const NearbyHospitals = ({ patientDetails }) => {
   // Fetch hospitals based on patient address
   // Effect to update hospitals when patient details change
   useEffect(() => {
+    let isSubscribed = true; // For cleanup
+
     const loadHospitals = async () => {
       if (!patientDetails?.address) {
         console.log('No patient address provided');
@@ -141,37 +143,94 @@ const NearbyHospitals = ({ patientDetails }) => {
       
       try {
         console.log('Fetching hospitals for address:', patientDetails.address);
-        const location = await geocodeAddress(patientDetails.address);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(patientDetails.address)}&limit=1`);
+        const data = await response.json();
+        
+        if (!data || data.length === 0) throw new Error('Address not found');
+        
+        const location = {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
+        
         console.log('Geocoded location:', location);
         
+        if (!isSubscribed) return;
         setSelectedLocation(location);
-        const data = await fetchHospitals(location.lat, location.lng);
-        console.log('Found hospitals:', data.length);
         
-        // Calculate real ETAs and distances for each hospital
-        const hospitalsWithETA = await Promise.all(data.map(async hospital => {
+        // Fetch hospitals
+        const query = `
+          [out:json][timeout:25];
+          (
+            way["amenity"="hospital"](around:10000,${location.lat},${location.lng});
+            relation["amenity"="hospital"](around:10000,${location.lat},${location.lng});
+            node["amenity"="hospital"](around:10000,${location.lat},${location.lng});
+          );
+          out body;
+          >;
+          out skel qt;
+        `;
+
+        const hospitalResponse = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: query
+        });
+
+        if (!hospitalResponse.ok) throw new Error('Failed to fetch hospitals');
+
+        const hospitalData = await hospitalResponse.json();
+        
+        if (!isSubscribed) return;
+        
+        // Process hospital data
+        const hospitals = hospitalData.elements
+          .filter(item => (
+            (item.lat || item.center?.lat) && 
+            (item.lon || item.center?.lon) &&
+            item.tags?.name
+          ))
+          .map(hospital => ({
+            id: hospital.id,
+            name: hospital.tags.name,
+            lat: hospital.lat || hospital.center.lat,
+            lng: hospital.lon || hospital.center.lon,
+            type: hospital.tags.emergency === 'yes' ? 'Emergency' : 'General',
+            address: hospital.tags['addr:street'],
+            phone: hospital.tags.phone,
+            wheelchair: hospital.tags.wheelchair === 'yes'
+          }));
+
+        console.log('Found hospitals:', hospitals.length);
+        
+        if (!isSubscribed) return;
+        
+        // Calculate real ETAs and distances
+        const hospitalsWithETA = await Promise.all(hospitals.map(async hospital => {
           try {
-            const routeInfo = await fetchRouteTimeAndDistance(
-              location.lat,
-              location.lng,
-              hospital.lat,
-              hospital.lng
+            const routeResponse = await fetch(
+              `https://router.project-osrm.org/route/v1/driving/${location.lng},${location.lat};${hospital.lng},${hospital.lat}?overview=false`
             );
+            const routeData = await routeResponse.json();
+            const route = routeData.routes[0];
             
             return {
               ...hospital,
-              distance: routeInfo.distance / 1000, // Convert to km
-              estimatedTime: Math.round(routeInfo.time / 60) // Convert to minutes
+              distance: route.distance / 1000, // Convert to km
+              estimatedTime: Math.round(route.duration / 60) // Convert to minutes
             };
           } catch (error) {
             console.error('Error calculating route:', error);
-            // Fallback to straight-line distance if route calculation fails
-            const distance = calculateDistance(
-              location.lat,
-              location.lng,
-              hospital.lat,
-              hospital.lng
-            );
+            // Fallback to straight-line distance
+            const R = 6371; // Earth's radius in km
+            const dLat = (hospital.lat - location.lat) * Math.PI / 180;
+            const dLon = (hospital.lng - location.lng) * Math.PI / 180;
+            const a = 
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(location.lat * Math.PI / 180) * Math.cos(hospital.lat * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+            
             return {
               ...hospital,
               distance: distance,
@@ -180,22 +239,23 @@ const NearbyHospitals = ({ patientDetails }) => {
           }
         }));
 
+        if (!isSubscribed) return;
         console.log('Hospitals with ETAs:', hospitalsWithETA);
 
         if (hospitalsWithETA.length === 0) {
           setError('No hospitals found in this area');
         } else {
-          setHospitals(hospitalsWithETA);
-          // Immediately update nearest hospitals
-          const sorted = [...hospitalsWithETA]
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, 5);
-          setNearestHospitals(sorted);
+          // Sort by distance and update state
+          const sorted = [...hospitalsWithETA].sort((a, b) => a.distance - b.distance);
+          setHospitals(sorted);
+          setNearestHospitals(sorted.slice(0, 5));
         }
       } catch (err) {
+        if (!isSubscribed) return;
         setError('Failed to load hospital data');
         console.error('Error loading hospitals:', err);
       } finally {
+        if (!isSubscribed) return;
         setLoading(false);
       }
     };
@@ -204,7 +264,12 @@ const NearbyHospitals = ({ patientDetails }) => {
 
     // Refresh data every 5 minutes
     const refreshInterval = setInterval(loadHospitals, 300000);
-    return () => clearInterval(refreshInterval);
+    
+    // Cleanup function
+    return () => {
+      isSubscribed = false;
+      clearInterval(refreshInterval);
+    };
   }, [patientDetails?.address]); // Only depend on the address
 
 
@@ -244,7 +309,7 @@ const NearbyHospitals = ({ patientDetails }) => {
 
       setHospitalAssignments(prev => ({ ...prev, ...newAssignments }));
     }
-  }, [hospitals, selectedLocation, patients, hospitalAssignments]);
+  }, [hospitals, patients]); // Only depend on hospitals and patients
 
   return (
     <Grid container spacing={3} sx={{ height: '80vh' }}>
