@@ -87,24 +87,24 @@ function App() {
       <EmergencyProvider>
         <PatientProvider>
           <Box sx={{ flexGrow: 1 }}>
-            <AppBar position="fixed" sx={{ mb: 2, height: 56 }}>
-              <Toolbar sx={{ justifyContent: 'center' }}>
-                <Typography variant="h6" component="div">
+            <AppBar position="fixed" sx={{ height: 70, borderRadius: 0 }}>
+              <Toolbar sx={{ justifyContent: 'center', height: '100%', minHeight: '64px' }}>
+                <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
                   Emergency Response System
                 </Typography>
               </Toolbar>
+            </AppBar>
+            <Container maxWidth="xl" sx={{ mt: 5, mb: 4, pt: 2 }}>
               <Tabs 
                 value={currentTab} 
                 onChange={handleTabChange}
                 centered
-                sx={{ bgcolor: 'primary.dark' }}
+                sx={{ bgcolor: 'primary.dark', mt: 2 }}
               >
                 <Tab label="Call Center" />
                 <Tab label="Doctor Dashboard" />
                 <Tab label="Dialer Records" />
               </Tabs>
-            </AppBar>
-            <Container maxWidth="xl" sx={{ mt: 12, mb: 4, pt: 2 }}>
               {currentTab === 0 && <CallCenterDashboard />}
               {currentTab === 1 && <DoctorDashboard />}
               {currentTab === 2 && <DialerRecords />}
