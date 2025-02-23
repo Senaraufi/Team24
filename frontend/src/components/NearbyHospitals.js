@@ -12,28 +12,23 @@ const mapContainerStyle = {
 };
 
 const center = {
-  lat: 53.3498, // Dublin city center
+  lat: 54.3498, // Dublin city center
   lng: -6.2603,
 };
 
-// Mock data for hospitals
-const mockHospitals = [
-  { id: 1, name: 'St. Vincent\'s Hospital', lat: 53.3328, lng: -6.2274, type: 'General' },
-  { id: 2, name: 'Mater Hospital', lat: 53.3589, lng: -6.2662, type: 'Emergency' },
-  { id: 3, name: 'Beaumont Hospital', lat: 53.3889, lng: -6.2263, type: 'General' },
-  { id: 4, name: 'St. James\'s Hospital', lat: 53.3419, lng: -6.2967, type: 'Emergency' },
-  { id: 5, name: 'Tallaght Hospital', lat: 53.2898, lng: -6.3778, type: 'General' },
-];
-
-// Function to simulate real-time updates
-const simulateMovement = (item) => {
-  const latChange = (Math.random() - 0.5) * 0.001; // Small random change in latitude
-  const lngChange = (Math.random() - 0.5) * 0.001; // Small random change in longitude
-  return {
-    ...item,
-    lat: item.lat + latChange,
-    lng: item.lng + lngChange,
-  };
+const fetchNearbyHospitals = async (lat, lng) => {
+  const query = `
+    [out:json];
+    (
+      node["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      way["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      relation["amenity"="hospital"](around:20000, ${lat}, ${lng});
+    );
+    out center;
+  `;
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+  const data = await response.json();
+  return data.elements;
 };
 
 const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
@@ -56,27 +51,26 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 const NearbyHospitals = () => {
-  const [hospitals, setHospitals] = useState(mockHospitals);
+  const [hospitals, setHospitals] = useState([]);
   const [nearestHospitals, setNearestHospitals] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(center);
 
-  // Simulate real-time updates for hospitals
   useEffect(() => {
-    const updateInterval = setInterval(() => {
-      // Update hospitals with slight location changes
-      setHospitals(prevHospitals =>
-        prevHospitals.map(hospital => simulateMovement(hospital))
-      );
-    }, 5000); // Update every 5 seconds
+    const fetchHospitals = async () => {
+      try {
+        const hospitalsData = await fetchNearbyHospitals(center.lat, center.lng);
+        setHospitals(hospitalsData);
+      } catch (error) {
+        console.error('Failed to fetch hospitals', error);
+      }
+    };
 
-    return () => clearInterval(updateInterval);
+    fetchHospitals();
   }, []);
 
-  // Update nearest hospitals whenever their locations change
   useEffect(() => {
     if (!hospitals.length) return;
 
-    // Update nearest hospitals
     const sortedHospitals = hospitals
       .map(hospital => ({
         ...hospital,
@@ -84,13 +78,13 @@ const NearbyHospitals = () => {
           selectedLocation.lat,
           selectedLocation.lng,
           hospital.lat,
-          hospital.lng
+          hospital.lon
         ),
         estimatedTime: Math.round(calculateDistance(
           selectedLocation.lat,
           selectedLocation.lng,
           hospital.lat,
-          hospital.lng
+          hospital.lon
         ) * 2)
       }))
       .sort((a, b) => a.distance - b.distance)
@@ -144,17 +138,17 @@ const NearbyHospitals = () => {
                 border: '1px solid #e0e0e0', 
                 borderRadius: 1, 
                 mb: 1,
-                backgroundColor: hospital.type === 'Emergency' ? '#fff3e0' : '#fff'
+                backgroundColor: hospital.tags.amenity === 'hospital' ? '#fff3e0' : '#fff'
               }}>
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
-                      {hospital.name}
+                      {hospital.tags.name || 'Unnamed Hospital'}
                     </Typography>
                     <Chip 
                       size="small"
-                      label={hospital.type}
-                      color={hospital.type === 'Emergency' ? 'warning' : 'default'}
+                      label={hospital.tags.amenity}
+                      color={hospital.tags.amenity === 'hospital' ? 'warning' : 'default'}
                     />
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
