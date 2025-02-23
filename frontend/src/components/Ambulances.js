@@ -1,39 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Box, Grid, Paper, Typography, List, ListItem, Chip } from '@mui/material';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '70vh',
-  borderRadius: '4px',
-};
-
-const center = {
-  lat: 53.3498, // Dublin city center
-  lng: -6.2603,
-};
-
-// Mock data for hospitals
-const mockHospitals = [
-  { id: 1, name: 'St. Vincent\'s Hospital', lat: 53.3328, lng: -6.2274, type: 'General' },
-  { id: 2, name: 'Mater Hospital', lat: 53.3589, lng: -6.2662, type: 'Emergency' },
-  { id: 3, name: 'Beaumont Hospital', lat: 53.3889, lng: -6.2263, type: 'General' },
-  { id: 4, name: 'St. James\'s Hospital', lat: 53.3419, lng: -6.2967, type: 'Emergency' },
-  { id: 5, name: 'Tallaght Hospital', lat: 53.2898, lng: -6.3778, type: 'General' },
-];
-
-// Function to simulate real-time updates
-const simulateMovement = (item) => {
-  const latChange = (Math.random() - 0.5) * 0.001; // Small random change in latitude
-  const lngChange = (Math.random() - 0.5) * 0.001; // Small random change in longitude
-  return {
-    ...item,
-    lat: item.lat + latChange,
-    lng: item.lng + lngChange,
-  };
-};
+import { PatientContext } from '../context/PatientContext';
 
 const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
   const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=false`);
@@ -54,49 +24,92 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-const NearbyHospitals = () => {
-  const [hospitals, setHospitals] = useState(mockHospitals);
+const NearbyHospitals = ({ patientDetails }) => {
+  const [hospitals, setHospitals] = useState([]);
   const [nearestHospitals, setNearestHospitals] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(center);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Simulate real-time updates for hospitals
+  // Effect to update hospitals when patient details change
   useEffect(() => {
-    const updateInterval = setInterval(() => {
-      // Update hospitals with slight location changes
-      setHospitals(prevHospitals =>
-        prevHospitals.map(hospital => simulateMovement(hospital))
-      );
-    }, 5000); // Update every 5 seconds
+    const loadHospitals = async () => {
+      if (!patientDetails?.address) {
+        console.log('No patient address provided');
+        return;
+      }
 
-    return () => clearInterval(updateInterval);
-  }, []);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        console.log('Fetching hospitals for address:', patientDetails.address);
+        const location = await geocodeAddress(patientDetails.address);
+        console.log('Geocoded location:', location);
+        
+        setSelectedLocation(location);
+        const data = await fetchHospitals(location.lat, location.lng);
+        console.log('Found hospitals:', data.length);
+        
+        // Calculate real ETAs and distances for each hospital
+        const hospitalsWithETA = await Promise.all(data.map(async hospital => {
+          try {
+            const routeInfo = await fetchRouteTimeAndDistance(
+              location.lat,
+              location.lng,
+              hospital.lat,
+              hospital.lng
+            );
+            
+            return {
+              ...hospital,
+              distance: routeInfo.distance / 1000, // Convert to km
+              estimatedTime: Math.round(routeInfo.time / 60) // Convert to minutes
+            };
+          } catch (error) {
+            console.error('Error calculating route:', error);
+            // Fallback to straight-line distance if route calculation fails
+            const distance = calculateDistance(
+              location.lat,
+              location.lng,
+              hospital.lat,
+              hospital.lng
+            );
+            return {
+              ...hospital,
+              distance: distance,
+              estimatedTime: Math.round(distance * 2) // Rough estimate: 30 km/h average speed
+            };
+          }
+        }));
 
-  // Update nearest hospitals whenever their locations change
-  useEffect(() => {
-    if (!hospitals.length) return;
+        console.log('Hospitals with ETAs:', hospitalsWithETA);
 
-    // Update nearest hospitals
-    const sortedHospitals = hospitals
-      .map(hospital => ({
-        ...hospital,
-        distance: calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lng
-        ),
-        estimatedTime: Math.round(calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lng
-        ) * 2)
-      }))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5);
+        if (hospitalsWithETA.length === 0) {
+          setError('No hospitals found in this area');
+        } else {
+          setHospitals(hospitalsWithETA);
+          // Immediately update nearest hospitals
+          const sorted = [...hospitalsWithETA]
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 5);
+          setNearestHospitals(sorted);
+        }
+      } catch (err) {
+        setError('Failed to load hospital data');
+        console.error('Error loading hospitals:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setNearestHospitals(sortedHospitals);
-  }, [hospitals, selectedLocation]);
+    loadHospitals();
+
+    // Refresh data every 5 minutes
+    const refreshInterval = setInterval(loadHospitals, 300000);
+    return () => clearInterval(refreshInterval);
+  }, [patientDetails?.address]); // Only depend on the address
+
 
   return (
     <Grid container spacing={3}>
@@ -104,7 +117,7 @@ const NearbyHospitals = () => {
         <Paper sx={{ p: 2, height: '100%' }}>
           <iframe
             title="Map"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedLocation.lng - 0.05},${selectedLocation.lat - 0.05},${selectedLocation.lng + 0.05},${selectedLocation.lat + 0.05}&layer=mapnik`}
             style={mapContainerStyle}
           ></iframe>
         </Paper>
@@ -156,4 +169,92 @@ const NearbyHospitals = () => {
   );
 };
 
-export default NearbyHospitals;
+const Ambulances = () => {
+  const { patients } = useContext(PatientContext);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+
+  useEffect(() => {
+    // Select the first patient by default
+    if (patients?.length > 0 && !selectedPatient) {
+      setSelectedPatient(patients[0]);
+    }
+  }, [patients]); // Only depend on patients
+
+  const handlePatientSelect = (patient) => {
+    console.log('Selecting patient:', patient);
+    setSelectedPatient(patient);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Ambulance Dispatch & Hospital Assignment
+      </Typography>
+      
+      {/* Patient Selection */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Select Patient
+        </Typography>
+        <List>
+          {patients?.map((patient) => (
+            <ListItem 
+              key={patient.id} 
+              button 
+              selected={selectedPatient?.id === patient.id}
+              onClick={() => handlePatientSelect(patient)}
+              sx={{
+                border: '1px solid #e0e0e0',
+                borderRadius: 1,
+                mb: 1,
+                backgroundColor: patient.isEmergency ? '#fff3e0' : '#fff',
+                '&:hover': {
+                  backgroundColor: patient.isEmergency ? '#ffe0b2' : '#f5f5f5',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: patient.isEmergency ? '#ffb74d' : '#e0e0e0',
+                  '&:hover': {
+                    backgroundColor: patient.isEmergency ? '#ffa726' : '#bdbdbd',
+                  }
+                }
+              }}
+            >
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="subtitle1">
+                  {patient.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {patient.address}
+                </Typography>
+                {patient.isEmergency && (
+                  <Chip 
+                    size="small" 
+                    label="Emergency" 
+                    color="warning" 
+                    sx={{ mt: 1 }}
+                  />
+                )}
+              </Box>
+            </ListItem>
+          ))}
+        </List>
+      </Paper>
+
+      {/* Nearby Hospitals */}
+      {selectedPatient ? (
+        <Box sx={{ mb: 2 }}>
+          <NearbyHospitals 
+            key={selectedPatient.id} 
+            patientDetails={selectedPatient} 
+          />
+        </Box>
+      ) : (
+        <Typography color="text.secondary" align="center">
+          Select a patient to view nearby hospitals
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+export default Ambulances;

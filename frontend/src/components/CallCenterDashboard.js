@@ -203,7 +203,11 @@ const CallCenterDashboard = () => {
 
   const handleSubmitAddress = () => {
     console.log('Address submitted:', newPatientDetails.address);
-    // Additional logic to handle address submission can be added here
+    // Update patient details with the new address
+    updatePatientDetails({
+      ...patientDetails,
+      address: newPatientDetails.address
+    });
   };
 
   return (
