@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Grid, Paper, Typography, List, ListItem, ListItemText } from '@mui/material';
-import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
+import MAPTILER_API_KEY from '../maps.js'; // Updated import path
 
 const mapContainerStyle = {
   width: '100%',
-  height: '70vh', // Set height to 80vh
+  height: '70vh',
   borderRadius: '4px',
 };
 
@@ -13,17 +13,15 @@ const center = {
   lng: -6.2603,
 };
 
-const options = {
-  disableDefaultUI: true,
-  zoomControl: true,
+const fetchNearbyHospitals = async (lat, lng) => {
+  const response = await fetch(`https://api.maptiler.com/places/v1/hospitals?key=${MAPTILER_API_KEY}&lat=${lat}&lon=${lng}`);
+  const data = await response.json();
+  return data.features;
 };
 
 const Ambulances = () => {
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-  });
-
   const [ambulances, setAmbulances] = useState([]);
+  const [hospitals, setHospitals] = useState([]);
 
   useEffect(() => {
     // Fetch the list of ambulances from the API
@@ -40,43 +38,29 @@ const Ambulances = () => {
     fetchAmbulances();
   }, []);
 
-  if (loadError) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="error">Error loading maps</Typography>
-      </Box>
-    );
-  }
+  useEffect(() => {
+    // Fetch nearby hospitals
+    const fetchHospitals = async () => {
+      try {
+        const hospitalsData = await fetchNearbyHospitals(center.lat, center.lng);
+        setHospitals(hospitalsData);
+      } catch (error) {
+        console.error('Failed to fetch hospitals', error);
+      }
+    };
 
-  if (!isLoaded) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography>Loading...</Typography>
-      </Box>
-    );
-  }
+    fetchHospitals();
+  }, []);
 
   return (
     <Grid container spacing={3}>
       <Grid item xs={12} md={8}>
         <Paper sx={{ p: 2, height: '100%' }}>
-          <GoogleMap
-            mapContainerStyle={mapContainerStyle}
-            zoom={13}
-            center={center}
-            options={options}
-          >
-            {ambulances.map((ambulance) => (
-              <Marker
-                key={ambulance.id}
-                position={{ lat: ambulance.lat, lng: ambulance.lng }}
-                icon={{
-                  url: '/ambulance-marker.svg',
-                  scaledSize: new window.google.maps.Size(30, 30),
-                }}
-              />
-            ))}
-          </GoogleMap>
+          <iframe
+            title="MapTiler Map"
+            src={`https://api.maptiler.com/maps/basic-v2/?key=${MAPTILER_API_KEY}#13/${center.lat}/${center.lng}`}
+            style={mapContainerStyle}
+          ></iframe>
         </Paper>
       </Grid>
       <Grid item xs={12} md={4}>
@@ -90,6 +74,19 @@ const Ambulances = () => {
                 <ListItemText
                   primary={`Ambulance ${ambulance.id}`}
                   secondary={`Location: (${ambulance.lat}, ${ambulance.lng})`}
+                />
+              </ListItem>
+            ))}
+          </List>
+          <Typography variant="h6" gutterBottom>
+            Nearby Hospitals
+          </Typography>
+          <List>
+            {hospitals.map((hospital) => (
+              <ListItem key={hospital.id}>
+                <ListItemText
+                  primary={hospital.properties.name}
+                  secondary={`Location: (${hospital.geometry.coordinates[1]}, ${hospital.geometry.coordinates[0]})`}
                 />
               </ListItem>
             ))}
