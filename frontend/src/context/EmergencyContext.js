@@ -10,7 +10,8 @@ export function EmergencyProvider({ children }) {
   const [transcript, setTranscript] = useState([]);
   const [patientDetails, setPatientDetails] = useState({});
   const [symptoms, setSymptoms] = useState([]);
-  const [severityScore, setSeverityScore] = useState(null);
+  const [severityScore, setSeverityScore] = useState(0);
+  const [severityDescription, setSeverityDescription] = useState('');
   const [dispatchInfo, setDispatchInfo] = useState(null);
 
   useEffect(() => {
@@ -19,9 +20,12 @@ export function EmergencyProvider({ children }) {
 
     newSocket.on('call_update', (data) => {
       setTranscript(prev => [...prev, data.transcript]);
-      setPatientDetails(data.analysis.patient_details);
-      setSymptoms(data.analysis.symptoms);
-      setSeverityScore(data.severity_score);
+      if (data.analysis) {
+        setPatientDetails(data.analysis.patient_details);
+        setSymptoms(data.analysis.symptoms || []);
+        setSeverityScore(data.analysis.severity_score || 0);
+        setSeverityDescription(data.analysis.severity_description || '');
+      }
     });
 
     newSocket.on('ambulance_dispatched', (data) => {
@@ -112,6 +116,7 @@ export function EmergencyProvider({ children }) {
     patientDetails,
     symptoms,
     severityScore,
+    severityDescription,
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,

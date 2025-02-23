@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import json
 from datetime import datetime
 from .models import db, DialerRecord
+from .services.symptom_evaluator import SymptomEvaluator
 
 # Load environment variables
 load_dotenv()
@@ -63,33 +64,63 @@ def create_app():
         audio_chunk = data['audio']
         
         try:
-            # Simulate AI transcription and analysis
-            transcription = "Patient complaining of chest pain and shortness of breath"
+            # Get existing symptoms from the call record
+            existing_symptoms = emergency_calls[call_id].get('symptoms', [])
+            
+            # Simulate new symptoms being detected from audio
+            # In production, this would be done by AI analysis of the audio
+            new_symptoms = []
+            if 'chest pain' not in existing_symptoms:
+                new_symptoms.append('chest pain')
+            if 'shortness of breath' not in existing_symptoms:
+                new_symptoms.append('shortness of breath')
+            if 'sweating' not in existing_symptoms:
+                new_symptoms.append('sweating')
+            
+            # Combine existing and new symptoms
+            updated_symptoms = list(set(existing_symptoms + new_symptoms))
+            
+            # Evaluate severity based on all symptoms
+            severity_score = SymptomEvaluator.evaluate_symptoms(updated_symptoms)
+            severity_description = SymptomEvaluator.get_severity_description(severity_score)
+            
+            # Create analysis result
             analysis = {
-                'patient_details': {
+                'patient_details': emergency_calls[call_id].get('patient_details', {
                     'age': '45',
                     'gender': 'male'
-                },
-                'symptoms': [
-                    'chest pain',
-                    'shortness of breath',
-                    'sweating'
-                ]
+                }),
+                'symptoms': updated_symptoms,
+                'severity_score': severity_score,
+                'severity_description': severity_description
             }
-            severity_score = 0.8  # High severity for chest pain
             
             # Update emergency call record
             emergency_calls[call_id]['transcript'].append(transcription)
             emergency_calls[call_id]['patient_details'].update(analysis['patient_details'])
-            emergency_calls[call_id]['symptoms'] = analysis['symptoms']
+            emergency_calls[call_id]['symptoms'] = updated_symptoms
             emergency_calls[call_id]['severity_score'] = severity_score
+            
+            # Update the database record
+            with app.app_context():
+                record_id = emergency_calls[call_id].get('record_id')
+                if record_id:
+                    record = DialerRecord.query.get(record_id)
+                    if record:
+                        record.symptoms = ','.join(updated_symptoms)
+                        record.severity_score = severity_score
+                        db.session.commit()
             
             # Broadcast updates to all connected clients
             emit('call_update', {
                 'call_id': call_id,
                 'transcript': transcription,
-                'analysis': analysis,
-                'severity_score': severity_score
+                'analysis': {
+                    'patient_details': analysis['patient_details'],
+                    'symptoms': updated_symptoms,
+                    'severity_score': severity_score,
+                    'severity_description': severity_description
+                }
             }, broadcast=True)
             
             # If severity is high, notify doctors

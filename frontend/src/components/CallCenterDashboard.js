@@ -16,7 +16,15 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon, CallEnd as CallEndIcon } from '@mui/icons-material';
+import { 
+  Edit as EditIcon, 
+  Check as CheckIcon, 
+  Warning as WarningIcon, 
+  CallEnd as CallEndIcon,
+  ErrorOutline as ErrorOutlineIcon,
+  Info as InfoIcon,
+  ReportProblem as ReportProblemIcon
+} from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
@@ -37,6 +45,7 @@ const CallCenterDashboard = () => {
     patientDetails,
     symptoms,
     severityScore,
+    severityDescription,
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
@@ -197,6 +206,22 @@ const CallCenterDashboard = () => {
     setExtractedSymptoms([]);
   };
 
+  // Function to get severity color based on score
+  const getSeverityColor = (score) => {
+    if (score >= 4.5) return '#ff1744'; // Critical - Red
+    if (score >= 3.5) return '#ff9100'; // Severe - Orange
+    if (score >= 2.5) return '#ffeb3b'; // Moderate - Yellow
+    return '#4caf50'; // Minor/Low - Green
+  };
+
+  // Function to get severity icon
+  const getSeverityIcon = (score) => {
+    if (score >= 4.5) return <ErrorOutlineIcon />;
+    if (score >= 3.5) return <ReportProblemIcon />;
+    if (score >= 2.5) return <WarningIcon />;
+    return <InfoIcon />;
+  };
+
   return (
     <Box sx={{ mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -204,7 +229,7 @@ const CallCenterDashboard = () => {
           Call Center Dashboard
         </Typography>
         <Box>
-          {severityScore >= 8 && (
+          {severityScore >= 4.5 && (
             <Chip
               icon={<WarningIcon />}
               label="CRITICAL EMERGENCY"
@@ -233,6 +258,51 @@ const CallCenterDashboard = () => {
         </Box>
       </Box>
       
+      {activeCall && (
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: 2, 
+            mb: 3, 
+            backgroundColor: getSeverityColor(severityScore),
+            color: severityScore >= 2.5 ? 'white' : 'black',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {getSeverityIcon(severityScore)}
+            <Typography variant="h6" sx={{ ml: 1 }}>
+              Severity Level: {severityScore.toFixed(2)}
+            </Typography>
+          </Box>
+          <Typography variant="body1">
+            {severityDescription || 'Evaluating...'}
+          </Typography>
+        </Paper>
+      )}
+
+      {activeCall && symptoms?.length > 0 && (
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>Reported Symptoms:</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {symptoms.map((symptom, index) => (
+              <Chip
+                key={index}
+                label={symptom}
+                color="primary"
+                variant="outlined"
+                sx={{
+                  borderColor: getSeverityColor(severityScore),
+                  color: getSeverityColor(severityScore)
+                }}
+              />
+            ))}
+          </Box>
+        </Paper>
+      )}
+
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, height: '100%' }}>
