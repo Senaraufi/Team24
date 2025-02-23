@@ -9,15 +9,16 @@ import {
   ThemeProvider, 
   Toolbar, 
   Typography, 
-  Button,
-  createTheme 
+  createTheme,
+  Button
 } from '@mui/material';
+import { CallEnd as CallEndIcon } from '@mui/icons-material';
 import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import DialerRecords from './components/DialerRecords';
 import { EmergencyProvider, useEmergency } from './context/EmergencyContext';
 import { PatientProvider } from './context/PatientContext';
-import { CallEnd as CallEndIcon } from '@mui/icons-material';
+import './App.css'; // Import the new CSS file
 
 const theme = createTheme({
   palette: {
@@ -76,6 +77,44 @@ const theme = createTheme({
   },
 });
 
+const HangUpButton = () => {
+  const { activeCall, endEmergencyCall, setEmergencyLocation, setAmbulanceLocation, setEditingDetails, setVerifiedDetails, setEditedPatientDetails, setLiveTranscript, setExtractedSymptoms } = useEmergency();
+
+  if (!activeCall) return null;
+
+  return (
+    <Box className="hangup-button-container">
+      <Button
+        variant="contained"
+        color="error"
+        size="large"
+        onClick={async () => {
+          try {
+            const result = await endEmergencyCall();
+            if (result) {
+              console.log('Call ended successfully');
+              setEmergencyLocation(null);
+              setAmbulanceLocation(null);
+              setEditingDetails(false);
+              setVerifiedDetails(false);
+              setEditedPatientDetails({});
+              setLiveTranscript('');
+              setExtractedSymptoms([]);
+            } else {
+              console.error('Failed to end call');
+            }
+          } catch (error) {
+            console.error('Error ending call:', error);
+          }
+        }}
+        startIcon={<CallEndIcon />}
+      >
+        Hang Up
+      </Button>
+    </Box>
+  );
+};
+
 function App() {
   const [currentTab, setCurrentTab] = useState(0);
 
@@ -88,75 +127,40 @@ function App() {
       <CssBaseline />
       <EmergencyProvider>
         <PatientProvider>
-          <AppContent currentTab={currentTab} handleTabChange={handleTabChange} />
+          <Box className="app-container">
+            <AppBar position="fixed" className="app-bar">
+              <Toolbar className="toolbar">
+                <Typography variant="h6" component="div">
+                  Emergency Response System
+                </Typography>
+              </Toolbar>
+              <Tabs 
+                value={currentTab} 
+                onChange={handleTabChange}
+                centered
+                className="modern-tabs"
+                sx={{
+                  '& .MuiTabs-indicator': {
+                    transition: 'transform 0.3s ease-in-out',
+                  },
+                }}
+              >
+                <Tab label="Call Center" className="modern-tab" />
+                <Tab label="Doctor Dashboard" className="modern-tab" />
+                <Tab label="Dialer Records" className="modern-tab" />
+              </Tabs>
+            </AppBar>
+            <Container maxWidth="xl" className="container">
+              {currentTab === 0 && <CallCenterDashboard />}
+              {currentTab === 1 && <DoctorDashboard />}
+              {currentTab === 2 && <DialerRecords />}
+            </Container>
+            <HangUpButton />
+          </Box>
         </PatientProvider>
       </EmergencyProvider>
     </ThemeProvider>
   );
 }
-
-const AppContent = ({ currentTab, handleTabChange }) => {
-  const { activeCall, endEmergencyCall, setEmergencyLocation, setAmbulanceLocation, setEditingDetails, setVerifiedDetails, setEditedPatientDetails, setLiveTranscript, setExtractedSymptoms } = useEmergency();
-
-  const handleCancelCall = async () => {
-    try {
-      const result = await endEmergencyCall();
-      if (result) {
-        console.log('Call ended successfully');
-        setEmergencyLocation(null);
-        setAmbulanceLocation(null);
-        setEditingDetails(false);
-        setVerifiedDetails(false);
-        setEditedPatientDetails({});
-        setLiveTranscript('');
-        setExtractedSymptoms([]);
-      } else {
-        console.error('Failed to end call');
-      }
-    } catch (error) {
-      console.error('Error ending call:', error);
-    }
-  };
-
-  return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="fixed" sx={{ height: 70, borderRadius: 0 }}>
-        <Toolbar sx={{ justifyContent: 'center', height: '100%', minHeight: '64px' }}>
-          <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
-            Emergency Response System
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="xl" sx={{ mt: 5, mb: 4, pt: 2 }}>
-        <Tabs 
-          value={currentTab} 
-          onChange={handleTabChange}
-          centered
-          sx={{ bgcolor: 'primary.dark', mt: 2 }}
-        >
-          <Tab label="Call Center" />
-          <Tab label="Doctor Dashboard" />
-          <Tab label="Dialer Records" />
-        </Tabs>
-        {currentTab === 0 && <CallCenterDashboard />}
-        {currentTab === 1 && <DoctorDashboard />}
-        {currentTab === 2 && <DialerRecords />}
-      </Container>
-      {activeCall && (
-        <Box sx={{ position: 'fixed', bottom: 20, right: 20 }}>
-          <Button
-            variant="contained"
-            color="error"
-            size="large"
-            onClick={handleCancelCall}
-            startIcon={<CallEndIcon />}
-          >
-            Hang Up
-          </Button>
-        </Box>
-      )}
-    </Box>
-  );
-};
 
 export default App;

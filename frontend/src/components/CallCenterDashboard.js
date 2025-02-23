@@ -16,15 +16,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { 
-  Edit as EditIcon, 
-  Check as CheckIcon, 
-  Warning as WarningIcon, 
-  CallEnd as CallEndIcon,
-  ErrorOutline as ErrorOutlineIcon,
-  Info as InfoIcon,
-  ReportProblem as ReportProblemIcon
-} from '@mui/icons-material';
+import { Edit as EditIcon, Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import EmergencyMap from './EmergencyMap';
@@ -44,13 +36,10 @@ const CallCenterDashboard = () => {
     transcript,
     patientDetails,
     symptoms,
-    severityScore, // Remove default value
-    severityDescription,
+    severityScore,
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
-    dispatchAmbulanceToLocation,
-    endEmergencyCall,
   } = useEmergency();
 
   const { addPatient } = useContext(PatientContext);
@@ -173,53 +162,16 @@ const CallCenterDashboard = () => {
   };
 
   const handleDispatchAmbulance = async () => {
-    console.log('Handling ambulance dispatch...');
-    if (!activeCall) {
-      console.error('No active call to dispatch ambulance for');
-      return;
+    if (!activeCall) return;
+
+    const location = { lat: 53.3498, lng: -6.2603 }; // Dublin city center
+    const nearest = await findNearestAmbulance(location);
+    
+    if (nearest) {
+      await dispatchAmbulance(activeCall, location);
+      // In a real app, we would get the actual ambulance location
+      setAmbulanceLocation({ lat: 53.3488, lng: -6.2613 });
     }
-
-    if (!emergencyLocation) {
-      console.error('No emergency location set');
-      return;
-    }
-
-    try {
-      const dispatchResult = await dispatchAmbulanceToLocation(emergencyLocation);
-      
-      if (dispatchResult) {
-        console.log('Ambulance dispatched successfully:', dispatchResult);
-        setAmbulanceLocation(dispatchResult.current_location);
-      } else {
-        console.error('Failed to dispatch ambulance');
-      }
-    } catch (error) {
-      console.error('Error in handleDispatchAmbulance:', error);
-    }
-  };
-
-  const handleEndCall = () => {
-    endEmergencyCall();
-    setEmergencyLocation(null);
-    setAmbulanceLocation(null);
-    setLiveTranscript('');
-    setExtractedSymptoms([]);
-  };
-
-  // Function to get severity color based on score
-  const getSeverityColor = (score) => {
-    if (score >= 4.5) return '#ff1744'; // Critical - Red
-    if (score >= 3.5) return '#ff9100'; // Severe - Orange
-    if (score >= 2.5) return '#ffeb3b'; // Moderate - Yellow
-    return '#4caf50'; // Minor/Low - Green
-  };
-
-  // Function to get severity icon
-  const getSeverityIcon = (score) => {
-    if (score >= 4.5) return <ErrorOutlineIcon />;
-    if (score >= 3.5) return <ReportProblemIcon />;
-    if (score >= 2.5) return <WarningIcon />;
-    return <InfoIcon />;
   };
 
   return (
@@ -229,7 +181,7 @@ const CallCenterDashboard = () => {
           Call Center Dashboard
         </Typography>
         <Box>
-          {severityScore !== null && severityScore >= 4.5 && (
+          {severityScore >= 8 && (
             <Chip
               icon={<WarningIcon />}
               label="CRITICAL EMERGENCY"
@@ -245,64 +197,9 @@ const CallCenterDashboard = () => {
           >
             Start New Call
           </Button>
-          {activeCall && (
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleEndCall}
-              sx={{ ml: 2 }}
-            >
-              End Call
-            </Button>
-          )}
         </Box>
       </Box>
       
-      {activeCall && severityScore !== null && (
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: 2, 
-            mb: 3, 
-            backgroundColor: getSeverityColor(severityScore),
-            color: severityScore >= 2.5 ? 'white' : 'black',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {getSeverityIcon(severityScore)}
-            <Typography variant="h6" sx={{ ml: 1 }}>
-              Severity Level: {severityScore.toFixed(2)}
-            </Typography>
-          </Box>
-          <Typography variant="body1">
-            {severityDescription || 'Evaluating...'}
-          </Typography>
-        </Paper>
-      )}
-
-      {activeCall && symptoms?.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>Reported Symptoms:</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {symptoms.map((symptom, index) => (
-              <Chip
-                key={index}
-                label={symptom}
-                color="primary"
-                variant="outlined"
-                sx={{
-                  borderColor: getSeverityColor(severityScore),
-                  color: getSeverityColor(severityScore)
-                }}
-              />
-            ))}
-          </Box>
-        </Paper>
-      )}
-
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2, height: '100%' }}>
@@ -481,40 +378,6 @@ const CallCenterDashboard = () => {
           </Paper>
         </Grid>
       </Grid>
-
-      {/* Hang Up Button */}
-      {activeCall && (
-        <Box sx={{ position: 'fixed', bottom: 20, right: 20 }}>
-          <Button
-            variant="contained"
-            color="error"
-            size="large"
-            onClick={async () => {
-              try {
-                const result = await endEmergencyCall();
-                if (result) {
-                  console.log('Call ended successfully');
-                  setEmergencyLocation(null);
-                  setAmbulanceLocation(null);
-                  setEditingDetails(false);
-                  setVerifiedDetails(false);
-                  setEditedPatientDetails({});
-                  setLiveTranscript('');
-                  setExtractedSymptoms([]);
-                } else {
-                  console.error('Failed to end call');
-                }
-              } catch (error) {
-                console.error('Error ending call:', error);
-              }
-            }}
-            startIcon={<CallEndIcon />}
-          >
-            Hang Up
-          </Button>
-        </Box>
-      )}
-
       <Dialog open={newCallDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>Start New Emergency Call</DialogTitle>
         <DialogContent>

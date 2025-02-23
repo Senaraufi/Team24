@@ -1,0 +1,48 @@
+.app-container {
+  flex-grow: 1;
+  background-color: transparent;
+}
+
+.app-bar {
+  margin-bottom: 16px;
+  height: 64px; /* Increased height */
+}
+
+.toolbar {
+  justify-content: center;
+}
+
+.modern-tabs {
+  background-color: transparent;
+  padding: 0px;
+  box-shadow: none;
+  height:10px;
+}
+
+.modern-tab {
+  color: #1976d2;
+  font-weight: bold;
+  transition: transform 0.3s, color 0.3s;
+}
+
+.modern-tab:hover {
+  color: #1565c0;
+  transform: scale(1.1);
+}
+
+.modern-tab.Mui-selected {
+  color: #0d47a1;
+  transform: scale(1.2);
+}
+
+.container {
+  margin-top: 104px; /* Adjusted for increased AppBar height */
+  margin-bottom: 32px;
+  padding-top: 16px;
+}
+
+.hangup-button-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}
