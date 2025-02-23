@@ -49,6 +49,58 @@ const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => 
   return { time: route.duration, distance: route.distance };
 };
 
+// --- Added severity evaluator code ---
+const SYMPTOM_SEVERITY = {
+  'chest pain': 5,
+  'heart palpitations': 4,
+  'shortness of breath': 4,
+  'dizziness': 3,
+  'severe headache': 4,
+  'confusion': 4,
+  'seizure': 5,
+  'loss of consciousness': 5,
+  'stroke symptoms': 5,
+  'numbness': 3,
+  'difficulty breathing': 5,
+  'wheezing': 3,
+  'coughing': 2,
+  'bleeding': 4,
+  'severe bleeding': 5,
+  'head injury': 5,
+  'broken bone': 4,
+  'burn': 4,
+  'severe burn': 5,
+  'severe abdominal pain': 4,
+  'vomiting': 2,
+  'vomiting blood': 5,
+  'fever': 2,
+  'high fever': 4,
+  'severe pain': 4,
+  'mild pain': 2,
+  'allergic reaction': 4,
+  'severe allergic reaction': 5,
+};
+
+const evaluateSymptoms = (symptoms) => {
+  if (!symptoms || symptoms.length === 0) return 0;
+  // Map each symptom object's text to a severity score (default to 1 if not recognized)
+  const severityScores = symptoms.map(
+    (symptom) => SYMPTOM_SEVERITY[symptom.text.toLowerCase()] || 1
+  );
+  const maxSeverity = Math.max(...severityScores);
+  const highSeverityCount = severityScores.filter(score => score >= 4).length;
+  const totalSymptoms = symptoms.length;
+  let score = maxSeverity;
+  if (highSeverityCount > 1) {
+    score = Math.min(score + 0.5 * (highSeverityCount - 1), 5);
+  }
+  if (totalSymptoms > 2) {
+    score = Math.min(score + 0.25 * (totalSymptoms - 2), 5);
+  }
+  return Math.round(score * 100) / 100;
+};
+// --- End severity evaluator code ---
+
 const CallCenterDashboard = () => {
   const [newCallDialogOpen, setNewCallDialogOpen] = useState(false);
   const [newPatientDetails, setNewPatientDetails] = useState({
@@ -63,7 +115,7 @@ const CallCenterDashboard = () => {
     transcript,
     patientDetails,
     symptoms,
-    severityScore,
+    severityScore, // from context, but we'll override it
     dispatchInfo,
     startEmergencyCall,
     updatePatientDetails,
@@ -78,7 +130,15 @@ const CallCenterDashboard = () => {
   const [editedPatientDetails, setEditedPatientDetails] = useState({});
   const [liveTranscript, setLiveTranscript] = useState('');
   const [extractedSymptoms, setExtractedSymptoms] = useState([]);
-  
+  // New state for computed severity score
+  const [computedSeverity, setComputedSeverity] = useState(severityScore);
+
+  // Update computedSeverity whenever extractedSymptoms changes
+  useEffect(() => {
+    const newScore = evaluateSymptoms(extractedSymptoms);
+    setComputedSeverity(newScore);
+  }, [extractedSymptoms]);
+
   // Simulate live transcription updates
   useEffect(() => {
     if (activeCall) {
@@ -217,7 +277,7 @@ const CallCenterDashboard = () => {
           Call Center Dashboard
         </Typography>
         <Box>
-          {severityScore >= 8 && (
+          {computedSeverity >= 8 && (
             <Chip
               icon={<WarningIcon />}
               label="CRITICAL EMERGENCY"
@@ -336,8 +396,8 @@ const CallCenterDashboard = () => {
                       Severity Score
                     </Typography>
                     <Chip
-                      label={`${severityScore}/10`}
-                      color={severityScore >= 8 ? 'error' : severityScore >= 5 ? 'warning' : 'success'}
+                      label={`${computedSeverity}/10`}
+                      color={computedSeverity >= 8 ? 'error' : computedSeverity >= 5 ? 'warning' : 'success'}
                     />
                   </div>
 
