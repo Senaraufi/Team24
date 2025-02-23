@@ -16,6 +16,7 @@ import { CallEnd as CallEndIcon } from '@mui/icons-material';
 import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import DialerRecords from './components/DialerRecords';
+import Ambulances from './components/Ambulances'; // Import the new component
 import { EmergencyProvider, useEmergency } from './context/EmergencyContext';
 import { PatientProvider } from './context/PatientContext';
 import './App.css'; // Import the new CSS file
@@ -146,14 +147,16 @@ function App() {
                 }}
               >
                 <Tab label="Call Center" className="modern-tab" />
+                <Tab label="Ambulances" className="modern-tab" />
                 <Tab label="Doctor Dashboard" className="modern-tab" />
                 <Tab label="Dialer Records" className="modern-tab" />
               </Tabs>
             </AppBar>
             <Container maxWidth="xl" className="container">
               {currentTab === 0 && <CallCenterDashboard />}
-              {currentTab === 1 && <DoctorDashboard />}
-              {currentTab === 2 && <DialerRecords />}
+              {currentTab === 1 && <Ambulances />}
+              {currentTab === 2 && <DoctorDashboard />}
+              {currentTab === 3 && <DialerRecords />}
             </Container>
             <HangUpButton />
           </Box>

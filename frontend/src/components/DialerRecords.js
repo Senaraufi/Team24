@@ -1,26 +1,9 @@
-import React, { useState, useContext } from 'react';
-import { Box, Typography, Paper, Grid, Divider, Button, TextField } from '@mui/material';
+import React, { useContext } from 'react';
+import { Box, Typography, Paper, Grid, Divider } from '@mui/material';
 import { PatientContext } from '../context/PatientContext';
-import { savePatientData } from '../utils/api';
 
 const DialerRecords = () => {
-    const { patients, addPatient } = useContext(PatientContext);
-    const [newPatient, setNewPatient] = useState({ id: '', number: '', time: '', date: '', address: '' });
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setNewPatient({ ...newPatient, [name]: value });
-    };
-
-    const handleAddPatient = async () => {
-        addPatient(newPatient);
-        try {
-            await savePatientData(newPatient);
-        } catch (error) {
-            console.error('Failed to save patient data', error);
-        }
-        setNewPatient({ id: '', number: '', time: '', date: '', address: '' });
-    };
+    const { patients } = useContext(PatientContext);
 
     return (
         <Box sx={{ padding: '10px' }}>
@@ -75,14 +58,6 @@ const DialerRecords = () => {
                     )}
                 </Grid>
             </Paper>
-            <Box sx={{ marginTop: '20px' }}>
-                <TextField label="ID" name="id" value={newPatient.id} onChange={handleChange} sx={{ marginRight: '10px' }} />
-                <TextField label="Number" name="number" value={newPatient.number} onChange={handleChange} sx={{ marginRight: '10px' }} />
-                <TextField label="Time" name="time" value={newPatient.time} onChange={handleChange} sx={{ marginRight: '10px' }} />
-                <TextField label="Date" name="date" value={newPatient.date} onChange={handleChange} sx={{ marginRight: '10px' }} />
-                <TextField label="Address" name="address" value={newPatient.address} onChange={handleChange} sx={{ marginRight: '10px' }} />
-                <Button variant="contained" color="primary" onClick={handleAddPatient}>Add Patient</Button>
-            </Box>
         </Box>
     );
 };

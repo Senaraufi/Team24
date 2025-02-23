@@ -16,7 +16,7 @@
   background-color: transparent;
   padding: 0px;
   box-shadow: none;
-  height:10px;
+  height: 10px;
 }
 
 .modern-tab {
@@ -36,6 +36,7 @@
 }
 
 .container {
+  height: 80vh; /* Set height to 80vh */
   margin-top: 104px; /* Adjusted for increased AppBar height */
   margin-bottom: 32px;
   padding-top: 16px;
