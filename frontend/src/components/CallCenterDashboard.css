@@ -1,3 +1,18 @@
+.dashboard-container {
+  margin-bottom: 4rem;
+}
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.critical-emergency-chip {
+  margin-right: 2rem;
+}
+
 .map-container {
   padding: 16px;
   height: 100%;
@@ -5,7 +20,7 @@
 
 .map-iframe {
   width: 100%;
-  height: var(--map-height, 70vh); /* Default height is 70vh, can be overridden */
+  height: var(--map-height, 60vh); /* Default height is 70vh, can be overridden */
   border-radius: 4px;
 }
 
@@ -14,4 +29,59 @@
   height: 100%;
   overflow-y: auto;
   max-height: var(--map-height, 70vh); /* Match the height of the map */
+}
+
+.active-call-box {
+  margin-top: 2rem;
+  padding: 2rem;
+  background-color: var(--success-light);
+  border-radius: 1rem;
+}
+
+.patient-details-box {
+  margin-top: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.emergency-details-box {
+  margin-top: 2rem;
+}
+
+.symptoms-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.live-transcription-box {
+  padding: 2rem;
+  max-height: 200px;
+  overflow: auto;
+  background-color: var(--grey-50);
+  position: relative;
+}
+
+.live-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0.5rem 1rem;
+  border-radius: 1rem;
+  background-color: var(--success-main);
+  color: white;
+  font-size: 0.75rem;
+}
+
+.extracted-symptoms-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.address-box {
+  margin-top: 2rem;
 }

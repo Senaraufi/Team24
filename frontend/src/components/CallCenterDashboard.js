@@ -207,8 +207,8 @@ const CallCenterDashboard = () => {
   };
 
   return (
-    <Box sx={{ mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box className="dashboard-container">
+      <Box className="header-container">
         <Typography variant="h4">
           Call Center Dashboard
         </Typography>
@@ -218,7 +218,7 @@ const CallCenterDashboard = () => {
               icon={<WarningIcon />}
               label="CRITICAL EMERGENCY"
               color="error"
-              sx={{ mr: 2 }}
+              className="critical-emergency-chip"
             />
           )}
           <Button
@@ -261,13 +261,13 @@ const CallCenterDashboard = () => {
               Dispatch Ambulance
             </Button>
             {activeCall && (
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
+              <Box className="active-call-box">
                 <Typography color="success.dark">
                   Active Call in Progress
                 </Typography>
               </Box>
             )}
-            <Box sx={{ mt: 2, border: '1px solid #ccc', borderRadius: 1, p: 2, maxHeight: '200px', overflowY: 'auto' }}>
+            <Box className="patient-details-box">
               <Typography variant="h6" gutterBottom>
                 Patient Details
               </Typography>
@@ -305,7 +305,7 @@ const CallCenterDashboard = () => {
                 <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
-            <Box sx={{ mt: 2 }}>
+            <Box className="emergency-details-box">
               <Typography variant="h6" gutterBottom>
                 Emergency Details
               </Typography>
@@ -315,7 +315,7 @@ const CallCenterDashboard = () => {
                     <Typography variant="subtitle1" gutterBottom>
                       Symptoms
                     </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    <Box className="symptoms-box">
                       {symptoms.map((symptom, index) => (
                         <Chip
                           key={index}
@@ -341,30 +341,9 @@ const CallCenterDashboard = () => {
                     <Typography variant="subtitle1" gutterBottom>
                       Live Transcription
                     </Typography>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 2,
-                        maxHeight: 200,
-                        overflow: 'auto',
-                        bgcolor: 'grey.50',
-                        position: 'relative'
-                      }}
-                    >
+                    <Paper className="live-transcription-box">
                       {activeCall && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 8,
-                            right: 8,
-                            px: 1,
-                            py: 0.5,
-                            borderRadius: 1,
-                            bgcolor: 'success.main',
-                            color: 'white',
-                            fontSize: '0.75rem'
-                          }}
-                        >
+                        <Box className="live-indicator">
                           Live
                         </Box>
                       )}
@@ -378,7 +357,7 @@ const CallCenterDashboard = () => {
                     <Typography variant="subtitle1" gutterBottom>
                       Extracted Symptoms
                     </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    <Box className="extracted-symptoms-box">
                       {extractedSymptoms.map((symptom, index) => (
                         <Chip
                           key={index}
@@ -395,7 +374,7 @@ const CallCenterDashboard = () => {
                 <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
-            <Box sx={{ mt: 2 }}>
+            <Box className="address-box">
               <Typography variant="h6" gutterBottom>
                 Address
               </Typography>
