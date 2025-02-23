@@ -8,9 +8,9 @@ import { PatientContext } from '../context/PatientContext';
 
 const mapContainerStyle = {
   width: '100%',
-  height: '70vh',
+  height: '100%',
   borderRadius: '4px',
-  border: '1px solid #e0e0e0'
+  flexGrow: 1
 };
 
 const fetchCoordinates = async (location) => {
@@ -22,67 +22,19 @@ const fetchCoordinates = async (location) => {
   throw new Error('Location not found');
 };
 
-// Function to fetch real hospital data from OpenStreetMap
-const fetchHospitals = async (lat, lng) => {
-  try {
-    const query = `
-      [out:json][timeout:25];
-      (
-        way["amenity"="hospital"](around:10000,${lat},${lng});
-        relation["amenity"="hospital"](around:10000,${lat},${lng});
-        node["amenity"="hospital"](around:10000,${lat},${lng});
-      );
-      out body;
-      >;
-      out skel qt;
-    `;
-
-    const response = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch hospitals');
-    }
-
-    const data = await response.json();
-    
-    // Process and clean the data
-    return data.elements
-      .filter(item => (
-        (item.lat || item.center?.lat) && 
-        (item.lon || item.center?.lon) &&
-        item.tags?.name
-      ))
-      .map(hospital => ({
-        id: hospital.id,
-        name: hospital.tags.name,
-        lat: hospital.lat || hospital.center.lat,
-        lng: hospital.lon || hospital.center.lon,
-        type: hospital.tags.emergency === 'yes' ? 'Emergency' : 'General',
-        address: hospital.tags['addr:street'],
-        phone: hospital.tags.phone,
-        wheelchair: hospital.tags.wheelchair === 'yes'
-      }));
-  } catch (error) {
-    console.error('Error fetching hospitals:', error);
-    return [];
-  }
-};
-
-// Alias for backward compatibility
-const fetchNearbyHospitals = fetchHospitals;
-
-// Function to simulate real-time updates
-const simulateMovement = (item) => {
-  const latChange = (Math.random() - 0.5) * 0.001; // Small random change in latitude
-  const lngChange = (Math.random() - 0.5) * 0.001; // Small random change in longitude
-  return {
-    ...item,
-    lat: item.lat + latChange,
-    lng: item.lng + lngChange,
-  };
+const fetchNearbyHospitals = async (lat, lng) => {
+  const query = `
+    [out:json];
+    (
+      node["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      way["amenity"="hospital"](around:20000, ${lat}, ${lng});
+      relation["amenity"="hospital"](around:20000, ${lat}, ${lng});
+    );
+    out center;
+  `;
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+  const data = await response.json();
+  return data.elements;
 };
 
 const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
@@ -109,37 +61,10 @@ const NearbyHospitals = ({ patientDetails }) => {
   const [nearestHospitals, setNearestHospitals] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState({ lat: 53.3498, lng: -6.2603 });
   const [locationInput, setLocationInput] = useState('Dublin');
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Fetch hospitals based on patient address
-  // Effect to update hospitals when patient details change
-  // Process hospitals data and calculate distances
-  useEffect(() => {
-    if (hospitals.length > 0 && selectedLocation) {
-      const processedHospitals = hospitals.map(hospital => ({
-        ...hospital,
-        distance: calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lon
-        ),
-        estimatedTime: Math.round(calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lon
-        ) * 2) // Rough estimate: 2 minutes per km
-      }));
-      
-      // Sort by distance
-      const sorted = [...processedHospitals].sort((a, b) => a.distance - b.distance);
-      setNearestHospitals(sorted);
-    }
-  }, [hospitals, selectedLocation]);
-
-  // Fetch hospitals
   useEffect(() => {
     const fetchHospitals = async (lat, lng) => {
       setLoading(true);
@@ -166,15 +91,33 @@ const NearbyHospitals = ({ patientDetails }) => {
     return () => clearInterval(refreshInterval);
   }, [selectedLocation]); // Only depend on selectedLocation
 
-
-
-  // Update nearest hospitals when the full hospital list changes
+  // Process and sort hospitals
   useEffect(() => {
-    if (hospitals.length > 0) {
-      const sorted = [...hospitals].sort((a, b) => a.distance - b.distance);
-      setNearestHospitals(sorted.slice(0, 5));
-    }
-  }, [hospitals]);
+    if (!hospitals.length) return;
+
+    const processedHospitals = hospitals.map(hospital => ({
+      ...hospital,
+      distance: calculateDistance(
+        selectedLocation.lat,
+        selectedLocation.lng,
+        hospital.lat,
+        hospital.lon
+      ),
+      estimatedTime: Math.round(calculateDistance(
+        selectedLocation.lat,
+        selectedLocation.lng,
+        hospital.lat,
+        hospital.lon
+      ) * 2) // Rough estimate: 2 minutes per km
+    }));
+    
+    // Sort by distance and take top 5
+    const sorted = [...processedHospitals]
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 5);
+
+    setNearestHospitals(sorted);
+  }, [hospitals, selectedLocation]);
 
   const handleLocationSubmit = async () => {
     try {
@@ -182,6 +125,7 @@ const NearbyHospitals = ({ patientDetails }) => {
       setSelectedLocation(coordinates);
     } catch (error) {
       console.error('Failed to fetch coordinates', error);
+      setError('Failed to fetch coordinates');
     }
   };
 
@@ -256,17 +200,26 @@ const NearbyHospitals = ({ patientDetails }) => {
                 border: '1px solid #e0e0e0', 
                 borderRadius: 1, 
                 mb: 1,
-                backgroundColor: hospital.type === 'Emergency' ? '#fff3e0' : '#fff'
+                backgroundColor: hospital.tags.amenity === 'hospital' ? '#fff3e0' : '#fff'
               }}>
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
+<<<<<<< HEAD
                       {hospital.name || hospital.tags?.name || 'Unnamed Hospital'}
                     </Typography>
                     <Chip 
                       size="small"
                       label={hospital.type || 'General'}
                       color={hospital.type === 'Emergency' ? 'warning' : 'default'}
+=======
+                      {hospital.tags.name || 'Unnamed Hospital'}
+                    </Typography>
+                    <Chip 
+                      size="small"
+                      label={hospital.tags.amenity}
+                      color={hospital.tags.amenity === 'hospital' ? 'warning' : 'default'}
+>>>>>>> 4af14709ad0ab8076ad2cba4883f8177dbf53ea7
                     />
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -275,13 +228,16 @@ const NearbyHospitals = ({ patientDetails }) => {
                       {typeof hospital.distance === 'number' ? `${hospital.distance.toFixed(2)} km away` : 'Distance unavailable'}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <AccessTimeIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
                     <Typography variant="body2" color="text.secondary">
                       ETA: {typeof hospital.estimatedTime === 'number' ? `${hospital.estimatedTime} mins` : 'Time unavailable'}
                     </Typography>
                   </Box>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4af14709ad0ab8076ad2cba4883f8177dbf53ea7
                 </Box>
               </ListItem>
             ))}          
