@@ -13,6 +13,7 @@ import {
   Button
 } from '@mui/material';
 import { CallEnd as CallEndIcon } from '@mui/icons-material';
+import { Routes, Route } from 'react-router-dom'; // Import Routes and Route
 import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import DialerRecords from './components/DialerRecords';
@@ -146,13 +147,20 @@ function App() {
                   },
                 }}
               >
-                <Tab label="Call Center" className="modern-tab" />
-                <Tab label="Nearby Hospitals" className="modern-tab" />
-                <Tab label="Doctor Dashboard" className="modern-tab" />
-                <Tab label="Dialer Records" className="modern-tab" />
+                <Tab label="Call" className="modern-tab" />
+                <Tab label="Hospitals" className="modern-tab" />
+                <Tab label="Dashboard" className="modern-tab" />
+                <Tab label="Records" className="modern-tab" />
               </Tabs>
             </AppBar>
             <Container maxWidth="xl" className="container">
+              <Routes>
+                <Route path="/call-center-dashboard" element={<CallCenterDashboard />} />
+                <Route path="/nearby-hospitals" element={<NearbyHospitals />} />
+                <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+                <Route path="/dialer-records" element={<DialerRecords />} />
+                {/* Add other routes as needed */}
+              </Routes>
               {currentTab === 0 && <CallCenterDashboard />}
               {currentTab === 1 && <NearbyHospitals />}
               {currentTab === 2 && <DoctorDashboard />}

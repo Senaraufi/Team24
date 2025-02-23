@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { 
   Box,
   Button,
@@ -14,12 +14,15 @@ import {
   List,
   ListItem,
   ListItemText,
+  Alert,
 } from '@mui/material';
 import { Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import { PatientContext } from '../context/PatientContext';
 import { savePatientData } from '../utils/api';
+import { startTextToSpeech, stopTextToSpeech } from '../services/textToSpeech'; // Import text-to-speech functions
+import { startLiveTranscription, stopLiveTranscription } from '../services/liveTranscription'; // Import live transcription functions
 import './CallCenterDashboard.css'; // Import the CSS file
 
 const center = {
@@ -58,6 +61,7 @@ const CallCenterDashboard = () => {
     symptoms: '',
     address: ''
   });
+  const [addressWarning, setAddressWarning] = useState(false); // State for address warning
   const {
     activeCall,
     transcript,
@@ -70,6 +74,7 @@ const CallCenterDashboard = () => {
   } = useEmergency();
 
   const { addPatient } = useContext(PatientContext);
+  const addressRef = useRef(null); // Create a ref for the address section
 
   const [emergencyLocation, setEmergencyLocation] = useState(null);
   const [ambulanceLocation, setAmbulanceLocation] = useState(null);
@@ -163,6 +168,7 @@ const CallCenterDashboard = () => {
         if (updated) {
           console.log('Successfully updated patient details');
           setNewCallDialogOpen(false);
+          startLiveTranscription(); // Start live transcription
         } else {
           console.error('Failed to update patient details');
         }
@@ -191,6 +197,14 @@ const CallCenterDashboard = () => {
   const handleDispatchAmbulance = async () => {
     if (!activeCall) return;
 
+    if (!newPatientDetails.address) {
+      setAddressWarning(true);
+      if (addressRef.current) {
+        addressRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+      return;
+    }
+
     const location = { lat: 53.3498, lng: -6.2603 }; // Dublin city center
     const nearest = await findNearestAmbulance(location);
     
@@ -208,7 +222,17 @@ const CallCenterDashboard = () => {
       ...patientDetails,
       address: newPatientDetails.address
     });
+    setAddressWarning(false); // Clear the warning
   };
+
+  useEffect(() => {
+    if (activeCall) {
+      startTextToSpeech();
+    } else {
+      stopTextToSpeech();
+      stopLiveTranscription(); // Stop live transcription
+    }
+  }, [activeCall]);
 
   return (
     <Box className="dashboard-container">
@@ -373,12 +397,37 @@ const CallCenterDashboard = () => {
                       ))}
                     </Box>
                   </div>
+
+                  <div>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Text-to-Speech
+                    </Typography>
+                    <Box className="text-to-speech-box">
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={startTextToSpeech}
+                        disabled={!activeCall}
+                      >
+                        Start Text-to-Speech
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={stopTextToSpeech}
+                        disabled={!activeCall}
+                        sx={{ ml: 2 }}
+                      >
+                        Stop Text-to-Speech
+                      </Button>
+                    </Box>
+                  </div>
                 </Box>
               ) : (
                 <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
-            <Box className="address-box">
+            <Box className="address-box" ref={addressRef}>
               <Typography variant="h6" gutterBottom>
                 Address
               </Typography>
@@ -388,6 +437,11 @@ const CallCenterDashboard = () => {
                 value={newPatientDetails.address}
                 onChange={handleNewPatientDetailsChange('address')}
               />
+              {addressWarning && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Please enter the address before dispatching an ambulance.
+                </Alert>
+              )}
               <Button
                 variant="contained"
                 color="primary"

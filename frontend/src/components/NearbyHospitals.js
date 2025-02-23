@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Grid, Paper, Typography, List, ListItem, Chip, TextField, Button } from '@mui/material';
+import { Box, Grid, Paper, Typography, List, ListItem, Chip, TextField, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import { PatientContext } from '../context/PatientContext';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { useLocation } from 'react-router-dom'; // Import useLocation
 
 const mapContainerStyle = {
   width: '100%',
@@ -57,12 +57,17 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 const NearbyHospitals = ({ patientDetails }) => {
+  const location = useLocation(); // Get the location object
   const [hospitals, setHospitals] = useState([]);
   const [nearestHospitals, setNearestHospitals] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState({ lat: 53.3498, lng: -6.2603 });
-  const [locationInput, setLocationInput] = useState('Dublin');
+  const [locationInput, setLocationInput] = useState(location.state?.searchAddress || 'Dublin'); // Use the address from the previous page if available
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedHospital, setSelectedHospital] = useState(null);
+  const [assigned, setAssigned] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Fetch hospitals based on patient address
   useEffect(() => {
@@ -127,6 +132,26 @@ const NearbyHospitals = ({ patientDetails }) => {
       console.error('Failed to fetch coordinates', error);
       setError('Failed to fetch coordinates');
     }
+  };
+
+  const handleMenuClick = (event, hospital) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedHospital(hospital);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedHospital(null);
+  };
+
+  const handleAssign = () => {
+    setAssigned(true);
+    setDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
   };
 
   return (
@@ -195,23 +220,48 @@ const NearbyHospitals = ({ patientDetails }) => {
               </Typography>
             )}
           <List>
-            {nearestHospitals.map((hospital) => (
-              <ListItem key={hospital.id || hospital.osm_id} sx={{ 
-                border: '1px solid #e0e0e0', 
-                borderRadius: 1, 
-                mb: 1,
-                backgroundColor: hospital.tags.amenity === 'hospital' ? '#fff3e0' : '#fff'
-              }}>
+            {nearestHospitals.map((hospital, index) => (
+              <ListItem 
+                key={hospital.id || hospital.osm_id} 
+                sx={{ 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 1, 
+                  mb: 1,
+                  backgroundColor: index === 0 ? '#fff8e1' : '#f5f5f5',
+                  borderColor: index === 0 ? 'gold' : '#e0e0e0',
+                  opacity: assigned ? 0.5 : 1
+                }}
+              >
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
                       {hospital.tags?.name || hospital.name || 'Unnamed Hospital'}
                     </Typography>
-                    <Chip 
-                      size="small"
-                      label={hospital.tags?.amenity === 'hospital' ? 'Hospital' : hospital.tags?.healthcare || 'Medical'}
-                      color={hospital.tags?.emergency === 'yes' ? 'warning' : 'default'}
-                    />
+                    <Box>
+                      <Chip 
+                        size="small"
+                        label={hospital.tags?.amenity === 'hospital' ? 'Hospital' : hospital.tags?.healthcare || 'Medical'}
+                        color={hospital.tags?.emergency === 'yes' ? 'warning' : 'default'}
+                      />
+                      <Button
+                        aria-controls="simple-menu"
+                        aria-haspopup="true"
+                        onClick={(event) => handleMenuClick(event, hospital)}
+                        disabled={assigned}
+                      >
+                        <MoreVertIcon />
+                      </Button>
+                      <Menu
+                        id="simple-menu"
+                        anchorEl={anchorEl}
+                        keepMounted
+                        open={Boolean(anchorEl)}
+                        onClose={handleMenuClose}
+                      >
+                        <MenuItem onClick={handleAssign} disabled={assigned}>Assign</MenuItem>
+                        <MenuItem onClick={handleMenuClose} disabled={assigned}>Ignore</MenuItem>
+                      </Menu>
+                    </Box>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <LocationOnIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
@@ -232,6 +282,19 @@ const NearbyHospitals = ({ patientDetails }) => {
           </Box>
         </Paper>
       </Grid>
+      <Dialog open={dialogOpen} onClose={handleDialogClose}>
+        <DialogTitle>Assignment Confirmation</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {selectedHospital?.tags?.name || selectedHospital?.name || 'Unnamed Hospital'} has been assigned. An ambulance is on the way.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDialogClose} color="primary">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 };
