@@ -205,8 +205,7 @@ const NearbyHospitals = ({ patientDetails }) => {
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
-<<<<<<< HEAD
-                      {hospital.name || hospital.tags?.name || 'Unnamed Hospital'}
+                      {hospital.tags?.name || hospital.name || 'Unnamed Hospital'}
                     </Typography>
                     <Chip 
                       size="small"
@@ -228,7 +227,7 @@ const NearbyHospitals = ({ patientDetails }) => {
                   </Box>
                 </Box>
               </ListItem>
-            ))}          
+            ))}
           </List>
           </Box>
         </Paper>
