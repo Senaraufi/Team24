@@ -59,21 +59,58 @@
 
 .live-transcription-box {
   padding: 2rem;
-  max-height: 200px;
+  max-height: 400px; /* Increased to accommodate bubbles */
   overflow: auto;
   background-color: var(--grey-50);
   position: relative;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  scroll-behavior: smooth;
+}
+
+.live-transcription-box:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.live-transcription-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.live-transcription-box::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.live-transcription-box::-webkit-scrollbar-thumb {
+  background: rgba(33, 150, 243, 0.3);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.live-transcription-box::-webkit-scrollbar-thumb:hover {
+  background: rgba(33, 150, 243, 0.5);
 }
 
 .live-indicator {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 0.5rem 1rem;
-  border-radius: 1rem;
-  background-color: var(--success-main);
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(255, 0, 0, 0.1);
   color: white;
   font-size: 0.75rem;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ff0000;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
 }
 
 .extracted-symptoms-box {
@@ -84,4 +121,51 @@
 
 .address-box {
   margin-top: 2rem;
+}
+
+.transcript-entry {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.key-points-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+}
+
+.key-point-bubble {
+  background: linear-gradient(145deg, #e6f2ff, #f0f7ff);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #2196f3;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.2);
+  transition: all 0.2s ease;
+  max-width: fit-content;
+}
+
+.key-point-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.2);
+  background: linear-gradient(145deg, #f0f7ff, #ffffff);
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

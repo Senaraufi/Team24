@@ -137,6 +137,15 @@ const CallCenterDashboard = () => {
   const [extractedSymptoms, setExtractedSymptoms] = useState([]);
   // New state for computed severity score
   const [computedSeverity, setComputedSeverity] = useState(severityScore);
+  const [transcriptionData, setTranscriptionData] = useState({
+    interim: '',
+    final: '',
+    fullTranscript: []
+  });
+  const [detectedConditions, setDetectedConditions] = useState({
+    injuries: [],
+    symptoms: []
+  });
 
   // Update computedSeverity whenever extractedSymptoms changes
   useEffect(() => {
@@ -147,14 +156,27 @@ const CallCenterDashboard = () => {
   // Simulate live transcription updates
   useEffect(() => {
     if (activeCall) {
-      const interval = setInterval(() => {
-        setLiveTranscript(prev => prev + ' ' + generateTranscriptUpdate());
-        if (Math.random() > 0.7) {
-          setExtractedSymptoms(prev => [...prev, generateSymptom()]);
+      const handleTranscriptionUpdate = (data) => {
+        setTranscriptionData(prev => ({
+          interim: data.interim,
+          final: data.final,
+          fullTranscript: data.final ? 
+            [...prev.fullTranscript, data.final].slice(-50) : 
+            prev.fullTranscript
+        }));
+
+        // Update detected conditions if available
+        if (data.detected) {
+          setDetectedConditions(prev => ({
+            injuries: [...new Set([...prev.injuries, ...data.detected.injuries])],
+            symptoms: [...new Set([...prev.symptoms, ...data.detected.symptoms])]
+          }));
         }
-      }, 2000);
-      return () => clearInterval(interval);
+      };
+
+      startLiveTranscription(handleTranscriptionUpdate);
     }
+    return () => stopLiveTranscription();
   }, [activeCall]);
 
   const generateTranscriptUpdate = () => {
@@ -228,7 +250,31 @@ const CallCenterDashboard = () => {
         if (updated) {
           console.log('Successfully updated patient details');
           setNewCallDialogOpen(false);
-          startLiveTranscription(); // Start live transcription
+          
+          // Updated transcription handler
+          const handleTranscriptionUpdate = (data) => {
+            setTranscriptionData(prev => ({
+              interim: data.interim,
+              final: data.final,
+              // Store just the text string instead of an object
+              fullTranscript: data.final ? 
+                [...prev.fullTranscript, data.final] : 
+                prev.fullTranscript
+            }));
+
+            if (data.final) {
+              if (data.final.toLowerCase().includes('pain') || 
+                  data.final.toLowerCase().includes('difficulty') ||
+                  data.final.toLowerCase().includes('problem')) {
+                setExtractedSymptoms(prev => [...prev, {
+                  text: data.final,
+                  severity: 'medium'
+                }]);
+              }
+            }
+          };
+
+          startLiveTranscription(handleTranscriptionUpdate);
         } else {
           console.error('Failed to update patient details');
         }
@@ -292,7 +338,189 @@ const CallCenterDashboard = () => {
       stopTextToSpeech();
       stopLiveTranscription(); // Stop live transcription
     }
+    return () => {
+      stopTextToSpeech();
+      stopLiveTranscription();
+    };
   }, [activeCall]);
+
+  const renderTranscriptionBox = () => (
+    <div className="transcription-container">
+      <Typography variant="subtitle1" gutterBottom>
+        Live Transcription
+      </Typography>
+      <Paper 
+        className="live-transcription-box" 
+        sx={{
+          p: 2,
+          maxHeight: '200px',
+          overflowY: 'auto',
+          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+          position: 'relative'
+        }}
+      >
+        {activeCall && (
+          <Box 
+            className="live-indicator"
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            <span 
+              style={{
+                width: 8,
+                height: 8,
+                backgroundColor: '#ff0000',
+                borderRadius: '50%',
+                animation: 'pulse 1.5s infinite'
+              }}
+            />
+            <Typography variant="caption" color="error">
+              LIVE
+            </Typography>
+          </Box>
+        )}
+        
+        {/* Show interim results */}
+        {transcriptionData.interim && (
+          <Typography 
+            variant="body2" 
+            sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+          >
+            {transcriptionData.interim}
+          </Typography>
+        )}
+
+        {/* Show full transcript */}
+        <Box sx={{ mt: 2 }}>
+          {transcriptionData.fullTranscript.map((text, index) => (
+            <div key={index} className="transcript-entry">
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mb: 1,
+                  borderLeft: '2px solid #2196f3',
+                  pl: 1
+                }}
+              >
+                {text}
+              </Typography>
+              <div className="key-points-container">
+                {text.split('.').map((sentence, i) => {
+                  if (sentence.trim().length > 0) {
+                    return (
+                      <div key={i} className="key-point-bubble">
+                        {sentence.trim()}
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            </div>
+          ))}
+        </Box>
+      </Paper>
+
+      {/* Add detected conditions display */}
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Detected Injuries
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          {detectedConditions.injuries.map((injury, index) => (
+            <Chip
+              key={index}
+              label={injury}
+              color="error"
+              variant="outlined"
+            />
+          ))}
+        </Box>
+
+        <Typography variant="subtitle2" gutterBottom>
+          Detected Symptoms
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {detectedConditions.symptoms.map((symptom, index) => (
+            <Chip
+              key={index}
+              label={symptom}
+              color="warning"
+              variant="outlined"
+            />
+          ))}
+        </Box>
+      </Box>
+    </div>
+  );
+
+  const renderEmergencyDetails = () => (
+    <Box className="emergency-details-box">
+      <Typography variant="h6" gutterBottom>
+        Emergency Details
+      </Typography>
+      {activeCall ? (
+        <Box sx={{ '& > *': { mb: 2 } }}>
+          {/* Symptoms section */}
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Symptoms
+            </Typography>
+            <Box className="symptoms-box">
+              {symptoms.map((symptom, index) => (
+                <Chip
+                  key={index}
+                  label={symptom}
+                  color="primary"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </div>
+
+          {/* Severity Score section */}
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Severity Score
+            </Typography>
+            <Chip
+              label={`${computedSeverity}/10`}
+              color={computedSeverity >= 8 ? 'error' : computedSeverity >= 5 ? 'warning' : 'success'}
+            />
+          </div>
+
+          {/* Live Transcription section */}
+          {renderTranscriptionBox()}
+
+          {/* Extracted Symptoms section */}
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Extracted Symptoms
+            </Typography>
+            <Box className="extracted-symptoms-box">
+              {extractedSymptoms.map((symptom, index) => (
+                <Chip
+                  key={index}
+                  label={symptom.text}
+                  color={symptom.severity === 'high' ? 'error' : 
+                        symptom.severity === 'medium' ? 'warning' : 'default'}
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </div>
+        </Box>
+      ) : (
+        <Typography color="text.secondary">No active call</Typography>
+      )}
+    </Box>
+  );
 
   return (
     <Box className="dashboard-container">
@@ -393,100 +621,7 @@ const CallCenterDashboard = () => {
                 <Typography color="text.secondary">No active call</Typography>
               )}
             </Box>
-            <Box className="emergency-details-box">
-              <Typography variant="h6" gutterBottom>
-                Emergency Details
-              </Typography>
-              {activeCall ? (
-                <Box sx={{ '& > *': { mb: 2 } }}>
-                  <div>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Symptoms
-                    </Typography>
-                    <Box className="symptoms-box">
-                      {symptoms.map((symptom, index) => (
-                        <Chip
-                          key={index}
-                          label={symptom}
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  </div>
-
-                  <div>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Severity Score
-                    </Typography>
-                    <Chip
-                      label={`${computedSeverity}/10`}
-                      color={computedSeverity >= 8 ? 'error' : computedSeverity >= 5 ? 'warning' : 'success'}
-                    />
-                  </div>
-
-                  <div>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Live Transcription
-                    </Typography>
-                    <Paper className="live-transcription-box">
-                      {activeCall && (
-                        <Box className="live-indicator">
-                          Live
-                        </Box>
-                      )}
-                      <Typography variant="body2">
-                        {liveTranscript || 'Waiting for call to start...'}
-                      </Typography>
-                    </Paper>
-                  </div>
-
-                  <div>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Extracted Symptoms
-                    </Typography>
-                    <Box className="extracted-symptoms-box">
-                      {extractedSymptoms.map((symptom, index) => (
-                        <Chip
-                          key={index}
-                          label={symptom.text}
-                          color={symptom.severity === 'high' ? 'error' : 
-                                symptom.severity === 'medium' ? 'warning' : 'default'}
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                  </div>
-
-                  <div>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Text-to-Speech
-                    </Typography>
-                    <Box className="text-to-speech-box">
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={startTextToSpeech}
-                        disabled={!activeCall}
-                      >
-                        Start Text-to-Speech
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={stopTextToSpeech}
-                        disabled={!activeCall}
-                        sx={{ ml: 2 }}
-                      >
-                        Stop Text-to-Speech
-                      </Button>
-                    </Box>
-                  </div>
-                </Box>
-              ) : (
-                <Typography color="text.secondary">No active call</Typography>
-              )}
-            </Box>
+            {renderEmergencyDetails()}
             <Box className="address-box" ref={addressRef}>
               <Typography variant="h6" gutterBottom>
                 Address
