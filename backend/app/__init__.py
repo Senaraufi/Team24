@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import json
 from datetime import datetime
+from .models import db, DialerRecord
 
 # Load environment variables
 load_dotenv()
@@ -15,6 +16,15 @@ def create_app():
     app = Flask(__name__)
     CORS(app, resources={r"/*": {"origins": "*"}})
     socketio.init_app(app, cors_allowed_origins="*")
+    
+    # Configure SQLite database
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emergency.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
 
     # In-memory storage (replace with database in production)
     emergency_calls = {}
@@ -24,7 +34,20 @@ def create_app():
     def start_emergency_call():
         data = request.json
         call_id = datetime.now().strftime("%Y%m%d%H%M%S")
+        
+        # Create new dialer record
+        record = DialerRecord(
+            caller_name=data.get('caller_name'),
+            caller_phone=data.get('caller_phone'),
+            emergency_type=data.get('emergency_type'),
+            location=data.get('location'),
+            status='active'
+        )
+        db.session.add(record)
+        db.session.commit()
+        
         emergency_calls[call_id] = {
+            'record_id': record.id,
             'status': 'active',
             'transcript': [],
             'patient_details': {},
@@ -32,7 +55,7 @@ def create_app():
             'severity_score': None,
             'dispatch_info': None
         }
-        return jsonify({'call_id': call_id, 'status': 'started'})
+        return jsonify({'call_id': call_id, 'record_id': record.id, 'status': 'started'})
 
     @socketio.on('audio_stream')
     def handle_audio_stream(data):
@@ -137,4 +160,34 @@ def create_app():
     def get_call_history():
         return jsonify(list(emergency_calls.values()))
 
+    # Routes for managing dialer records
+    @app.route('/api/dialer-records', methods=['GET'])
+    def get_dialer_records():
+        records = DialerRecord.query.all()
+        return jsonify([record.to_dict() for record in records])
+    
+    @app.route('/api/dialer-records/<int:record_id>', methods=['GET'])
+    def get_dialer_record(record_id):
+        record = DialerRecord.query.get_or_404(record_id)
+        return jsonify(record.to_dict())
+    
+    @app.route('/api/dialer-records/<int:record_id>', methods=['PUT'])
+    def update_dialer_record(record_id):
+        record = DialerRecord.query.get_or_404(record_id)
+        data = request.json
+        
+        for key, value in data.items():
+            if hasattr(record, key):
+                setattr(record, key, value)
+        
+        db.session.commit()
+        return jsonify(record.to_dict())
+    
+    @app.route('/api/dialer-records/<int:record_id>', methods=['DELETE'])
+    def delete_dialer_record(record_id):
+        record = DialerRecord.query.get_or_404(record_id)
+        db.session.delete(record)
+        db.session.commit()
+        return jsonify({'message': 'Record deleted successfully'})
+    
     return app
