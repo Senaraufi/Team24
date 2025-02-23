@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Box, Grid, Paper, Typography, List, ListItem, Chip } from '@mui/material';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import { PatientContext } from '../context/PatientContext';
 
 const mapContainerStyle = {
   width: '100%',
@@ -11,24 +13,90 @@ const mapContainerStyle = {
   flexGrow: 1
 };
 
-const center = {
-  lat: 54.3498, // Dublin city center
-  lng: -6.2603,
+// Function to geocode address using Nominatim
+const geocodeAddress = async (address) => {
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+    throw new Error('Address not found');
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    // Default to Dublin city center if geocoding fails
+    return {
+      lat: 53.3498,
+      lng: -6.2603
+    };
+  }
 };
 
-const fetchNearbyHospitals = async (lat, lng) => {
-  const query = `
-    [out:json];
-    (
-      node["amenity"="hospital"](around:20000, ${lat}, ${lng});
-      way["amenity"="hospital"](around:20000, ${lat}, ${lng});
-      relation["amenity"="hospital"](around:20000, ${lat}, ${lng});
-    );
-    out center;
-  `;
-  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-  const data = await response.json();
-  return data.elements;
+// Function to fetch real hospital data from OpenStreetMap
+const fetchHospitals = async (lat, lng) => {
+  try {
+    const query = `
+      [out:json][timeout:25];
+      (
+        way["amenity"="hospital"](around:10000,${lat},${lng});
+        relation["amenity"="hospital"](around:10000,${lat},${lng});
+        node["amenity"="hospital"](around:10000,${lat},${lng});
+      );
+      out body;
+      >;
+      out skel qt;
+    `;
+
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch hospitals');
+    }
+
+    const data = await response.json();
+    
+    // Process and clean the data
+    return data.elements
+      .filter(item => (
+        (item.lat || item.center?.lat) && 
+        (item.lon || item.center?.lon) &&
+        item.tags?.name
+      ))
+      .map(hospital => ({
+        id: hospital.id,
+        name: hospital.tags.name,
+        lat: hospital.lat || hospital.center.lat,
+        lng: hospital.lon || hospital.center.lon,
+        type: hospital.tags.emergency === 'yes' ? 'Emergency' : 'General',
+        address: hospital.tags['addr:street'],
+        phone: hospital.tags.phone,
+        wheelchair: hospital.tags.wheelchair === 'yes'
+      }));
+  } catch (error) {
+    console.error('Error fetching hospitals:', error);
+    return [];
+  }
+};
+
+// Alias for backward compatibility
+const fetchNearbyHospitals = fetchHospitals;
+
+// Function to simulate real-time updates
+const simulateMovement = (item) => {
+  const latChange = (Math.random() - 0.5) * 0.001; // Small random change in latitude
+  const lngChange = (Math.random() - 0.5) * 0.001; // Small random change in longitude
+  return {
+    ...item,
+    lat: item.lat + latChange,
+    lng: item.lng + lngChange,
+  };
 };
 
 const fetchRouteTimeAndDistance = async (startLat, startLng, endLat, endLng) => {
@@ -50,48 +118,133 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-const NearbyHospitals = () => {
+const NearbyHospitals = ({ patientDetails }) => {
   const [hospitals, setHospitals] = useState([]);
   const [nearestHospitals, setNearestHospitals] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(center);
+  const [selectedLocation, setSelectedLocation] = useState({ lat: 53.3498, lng: -6.2603 });
+  const [hospitalAssignments, setHospitalAssignments] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { patients } = useContext(PatientContext);
 
+  // Fetch hospitals based on patient address
+  // Effect to update hospitals when patient details change
   useEffect(() => {
-    const fetchHospitals = async () => {
+    const loadHospitals = async () => {
+      if (!patientDetails?.address) {
+        console.log('No patient address provided');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      
       try {
-        const hospitalsData = await fetchNearbyHospitals(center.lat, center.lng);
-        setHospitals(hospitalsData);
-      } catch (error) {
-        console.error('Failed to fetch hospitals', error);
+        console.log('Fetching hospitals for address:', patientDetails.address);
+        const location = await geocodeAddress(patientDetails.address);
+        console.log('Geocoded location:', location);
+        
+        setSelectedLocation(location);
+        const data = await fetchHospitals(location.lat, location.lng);
+        console.log('Found hospitals:', data.length);
+        
+        // Calculate real ETAs and distances for each hospital
+        const hospitalsWithETA = await Promise.all(data.map(async hospital => {
+          try {
+            const routeInfo = await fetchRouteTimeAndDistance(
+              location.lat,
+              location.lng,
+              hospital.lat,
+              hospital.lng
+            );
+            
+            return {
+              ...hospital,
+              distance: routeInfo.distance / 1000, // Convert to km
+              estimatedTime: Math.round(routeInfo.time / 60) // Convert to minutes
+            };
+          } catch (error) {
+            console.error('Error calculating route:', error);
+            // Fallback to straight-line distance if route calculation fails
+            const distance = calculateDistance(
+              location.lat,
+              location.lng,
+              hospital.lat,
+              hospital.lng
+            );
+            return {
+              ...hospital,
+              distance: distance,
+              estimatedTime: Math.round(distance * 2) // Rough estimate: 30 km/h average speed
+            };
+          }
+        }));
+
+        console.log('Hospitals with ETAs:', hospitalsWithETA);
+
+        if (hospitalsWithETA.length === 0) {
+          setError('No hospitals found in this area');
+        } else {
+          setHospitals(hospitalsWithETA);
+          // Immediately update nearest hospitals
+          const sorted = [...hospitalsWithETA]
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 5);
+          setNearestHospitals(sorted);
+        }
+      } catch (err) {
+        setError('Failed to load hospital data');
+        console.error('Error loading hospitals:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchHospitals();
-  }, []);
+    loadHospitals();
 
+    // Refresh data every 5 minutes
+    const refreshInterval = setInterval(loadHospitals, 300000);
+    return () => clearInterval(refreshInterval);
+  }, [patientDetails?.address]); // Only depend on the address
+
+
+
+  // Effect to handle hospital assignments
   useEffect(() => {
     if (!hospitals.length) return;
 
-    const sortedHospitals = hospitals
-      .map(hospital => ({
-        ...hospital,
-        distance: calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lon
-        ),
-        estimatedTime: Math.round(calculateDistance(
-          selectedLocation.lat,
-          selectedLocation.lng,
-          hospital.lat,
-          hospital.lon
-        ) * 2)
-      }))
+    // Sort hospitals by distance and get the nearest 5
+    const sortedHospitals = [...hospitals]
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 5);
 
     setNearestHospitals(sortedHospitals);
-  }, [hospitals, selectedLocation]);
+
+    // Automatically assign patients to nearest hospitals
+    if (patients && patients.length > 0) {
+      const newAssignments = {};
+      patients.forEach(patient => {
+        if (!hospitalAssignments[patient.id]) {
+          // Find the hospital with the least current assignments
+          const hospitalCounts = {};
+          Object.values(hospitalAssignments).forEach(hospitalId => {
+            hospitalCounts[hospitalId] = (hospitalCounts[hospitalId] || 0) + 1;
+          });
+
+          const availableHospitals = sortedHospitals.filter(hospital => 
+            (hospitalCounts[hospital.id] || 0) < 5 && // Limit of 5 patients per hospital
+            (hospital.type === 'Emergency' || !patient.isEmergency) // Emergency patients go to emergency hospitals
+          );
+
+          if (availableHospitals.length > 0) {
+            newAssignments[patient.id] = availableHospitals[0].id;
+          }
+        }
+      });
+
+      setHospitalAssignments(prev => ({ ...prev, ...newAssignments }));
+    }
+  }, [hospitals, selectedLocation, patients, hospitalAssignments]);
 
   return (
     <Grid container spacing={3} sx={{ height: '80vh' }}>
@@ -99,7 +252,7 @@ const NearbyHospitals = () => {
         <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <iframe
             title="Map"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedLocation.lng - 0.05},${selectedLocation.lat - 0.05},${selectedLocation.lng + 0.05},${selectedLocation.lat + 0.05}&layer=mapnik`}
             style={mapContainerStyle}
           ></iframe>
         </Paper>
@@ -132,23 +285,33 @@ const NearbyHospitals = () => {
             overflowY: 'auto',
             mt: 1
           }}>
+            {error && (
+              <Typography color="error" sx={{ p: 2, textAlign: 'center' }}>
+                {error}
+              </Typography>
+            )}
+            {!error && hospitals.length === 0 && !loading && (
+              <Typography color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                No hospitals found in this area
+              </Typography>
+            )}
           <List>
             {nearestHospitals.map((hospital) => (
               <ListItem key={hospital.id} sx={{ 
                 border: '1px solid #e0e0e0', 
                 borderRadius: 1, 
                 mb: 1,
-                backgroundColor: hospital.tags.amenity === 'hospital' ? '#fff3e0' : '#fff'
+                backgroundColor: hospital.type === 'Emergency' ? '#fff3e0' : '#fff'
               }}>
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
-                      {hospital.tags.name || 'Unnamed Hospital'}
+                      {hospital.name || 'Unnamed Hospital'}
                     </Typography>
                     <Chip 
                       size="small"
-                      label={hospital.tags.amenity}
-                      color={hospital.tags.amenity === 'hospital' ? 'warning' : 'default'}
+                      label={hospital.type}
+                      color={hospital.type === 'Emergency' ? 'warning' : 'default'}
                     />
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -157,12 +320,33 @@ const NearbyHospitals = () => {
                       {hospital.distance.toFixed(2)} km away
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <AccessTimeIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
                     <Typography variant="body2" color="text.secondary">
                       ETA: {hospital.estimatedTime} mins
                     </Typography>
                   </Box>
+                  {Object.entries(hospitalAssignments)
+                    .filter(([_, hId]) => hId === hospital.id)
+                    .map(([patientId]) => {
+                      const patient = patients.find(p => p.id === patientId);
+                      return patient ? (
+                        <Box key={patientId} sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          borderRadius: 1,
+                          p: 0.5,
+                          mb: 0.5
+                        }}>
+                          <AssignmentIcon sx={{ mr: 1, fontSize: '0.9rem', color: 'primary.main' }} />
+                          <Typography variant="body2" color="primary">
+                            {patient.name || `Patient ${patientId}`}
+                          </Typography>
+                        </Box>
+                      ) : null;
+                    })
+                  }
                 </Box>
               </ListItem>
             ))}          

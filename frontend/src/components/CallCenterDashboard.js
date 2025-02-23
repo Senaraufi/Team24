@@ -20,6 +20,7 @@ import { useEmergency } from '../context/EmergencyContext';
 import { findNearestAmbulance, dispatchAmbulance } from '../services/api';
 import { PatientContext } from '../context/PatientContext';
 import { savePatientData } from '../utils/api';
+import NearbyHospitals from './NearbyHospitals';
 import './CallCenterDashboard.css'; // Import the CSS file
 
 const center = {
@@ -203,7 +204,11 @@ const CallCenterDashboard = () => {
 
   const handleSubmitAddress = () => {
     console.log('Address submitted:', newPatientDetails.address);
-    // Additional logic to handle address submission can be added here
+    // Update patient details with the new address
+    updatePatientDetails({
+      ...patientDetails,
+      address: newPatientDetails.address
+    });
   };
 
   return (
@@ -236,13 +241,9 @@ const CallCenterDashboard = () => {
         <Grid item xs={12} md={8}>
           <Paper className="map-container">
             <Typography variant="h6" gutterBottom>
-              Emergency Map
+              Emergency Map & Nearby Hospitals
             </Typography>
-            <iframe
-              title="Map"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
-              className="map-iframe"
-            ></iframe>
+            <NearbyHospitals patientDetails={patientDetails} />
           </Paper>
         </Grid>
 
