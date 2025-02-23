@@ -1,4 +1,7 @@
-const GOOGLE_API_KEY = 'AIzaSyDy9IPY_MudCHq7N0aaZCvJhy2Zy2Q6i8k';
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
+if (!GOOGLE_API_KEY) {
+  console.error('Google API key not found in environment variables');
+}
 
 let recognition = null;
 let transcriptionCallbacks = [];

@@ -15,6 +15,7 @@ import {
   ListItem,
   ListItemText,
   Alert,
+  ListItemIcon,
 } from '@mui/material';
 import { Check as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useEmergency } from '../context/EmergencyContext';
@@ -23,7 +24,11 @@ import { PatientContext } from '../context/PatientContext';
 import { savePatientData } from '../utils/api';
 import { startTextToSpeech, stopTextToSpeech } from '../services/textToSpeech'; // Import text-to-speech functions
 import { startLiveTranscription, stopLiveTranscription } from '../services/liveTranscription'; // Import live transcription functions
+import { extractRelevantInfo, getSeverityColor, MEDICAL_INFO } from './MedicalInfo';
 import './CallCenterDashboard.css'; // Import the CSS file
+import { DeleteOutline as DeleteIcon } from '@mui/icons-material';
+import { recordService } from '../services/recordService';
+import RecordsTable from './RecordsTable';
 
 const center = {
   lat: 53.3498, // Dublin city center
@@ -146,6 +151,18 @@ const CallCenterDashboard = () => {
     injuries: [],
     symptoms: []
   });
+  const [medicalInfo, setMedicalInfo] = useState({
+    actions: [],
+    questions: [],
+    precautions: [],
+    priority: 'LOW'
+  });
+  const [records, setRecords] = useState([]);
+
+  // Load records on mount
+  useEffect(() => {
+    setRecords(recordService.getAllRecords());
+  }, []);
 
   // Update computedSeverity whenever extractedSymptoms changes
   useEffect(() => {
@@ -178,6 +195,14 @@ const CallCenterDashboard = () => {
     }
     return () => stopLiveTranscription();
   }, [activeCall]);
+
+  // Update medical info when symptoms change
+  useEffect(() => {
+    if (detectedConditions.symptoms.length > 0) {
+      const info = extractRelevantInfo(detectedConditions.symptoms);
+      setMedicalInfo(info);
+    }
+  }, [detectedConditions.symptoms]);
 
   const generateTranscriptUpdate = () => {
     const updates = [
@@ -331,18 +356,144 @@ const CallCenterDashboard = () => {
     setAddressWarning(false); // Clear the warning
   };
 
+  const handleDeleteSymptom = (index) => {
+    setDetectedConditions(prev => ({
+      ...prev,
+      symptoms: prev.symptoms.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleDeleteInjury = (index) => {
+    setDetectedConditions(prev => ({
+      ...prev,
+      injuries: prev.injuries.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Add a confirmation dialog for clearing conditions
+  const handleClearAllConditions = () => {
+    if (window.confirm('Are you sure you want to clear all detected conditions?')) {
+      setDetectedConditions({ injuries: [], symptoms: [] });
+      setMedicalInfo({
+        actions: [],
+        questions: [],
+        precautions: [],
+        priority: 'LOW'
+      });
+    }
+  };
+
+  // Define the handleTranscriptionUpdate function at component level
+  const handleTranscriptionUpdate = (data) => {
+    setTranscriptionData(prev => ({
+      interim: data.interim,
+      final: data.final,
+      fullTranscript: data.final ? 
+        [...prev.fullTranscript, data.final] : 
+        prev.fullTranscript
+    }));
+
+    // Update detected conditions if available
+    if (data.detected) {
+      setDetectedConditions(prev => ({
+        injuries: [...new Set([...prev.injuries, ...data.detected.injuries])],
+        symptoms: [...new Set([...prev.symptoms, ...data.detected.symptoms])]
+      }));
+    }
+  };
+
+  // Update the useEffect to use the defined function
   useEffect(() => {
     if (activeCall) {
       startTextToSpeech();
+      startLiveTranscription(handleTranscriptionUpdate);
     } else {
       stopTextToSpeech();
-      stopLiveTranscription(); // Stop live transcription
+      stopLiveTranscription();
+      // Remove the cleanup of symptoms here
+      setTranscriptionData(prev => ({
+        ...prev,
+        interim: '',
+        final: ''
+      }));
     }
     return () => {
       stopTextToSpeech();
       stopLiveTranscription();
     };
   }, [activeCall]);
+
+  const handleEndCall = () => {
+    if (activeCall) {
+      const recordData = {
+        patientName: patientDetails.name,
+        patientAge: patientDetails.age,
+        symptoms: detectedConditions.symptoms,
+        injuries: detectedConditions.injuries,
+        priority: medicalInfo.priority,
+        transcript: transcriptionData.fullTranscript.join('\n'),
+        address: patientDetails.address
+      };
+
+      const newRecord = recordService.addRecord(recordData);
+      setRecords(prev => [newRecord, ...prev]);
+    }
+  };
+
+  const handleDeleteRecord = (recordId) => {
+    recordService.deleteRecord(recordId);
+    setRecords(prev => prev.filter(record => record.id !== recordId));
+  };
+
+  const renderDetectedConditions = () => (
+    <Box sx={{ mt: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle2">
+          Detected Conditions
+        </Typography>
+        {(detectedConditions.injuries.length > 0 || detectedConditions.symptoms.length > 0) && (
+          <Button
+            size="small"
+            startIcon={<DeleteIcon />}
+            onClick={handleClearAllConditions}
+            color="error"
+          >
+            Clear All
+          </Button>
+        )}
+      </Box>
+
+      <Typography variant="subtitle2" gutterBottom>
+        Injuries
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+        {detectedConditions.injuries.map((injury, index) => (
+          <Chip
+            key={index}
+            label={injury}
+            color="error"
+            variant="outlined"
+            onDelete={() => handleDeleteInjury(index)}
+          />
+        ))}
+      </Box>
+
+      <Typography variant="subtitle2" gutterBottom>
+        Symptoms
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        {detectedConditions.symptoms.map((symptom, index) => (
+          <Chip
+            key={index}
+            label={symptom}
+            color="warning"
+            variant="outlined"
+            onDelete={() => handleDeleteSymptom(index)}
+          />
+        ))}
+      </Box>
+    </Box>
+  );
 
   const renderTranscriptionBox = () => (
     <div className="transcription-container">
@@ -428,35 +579,7 @@ const CallCenterDashboard = () => {
       </Paper>
 
       {/* Add detected conditions display */}
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Detected Injuries
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-          {detectedConditions.injuries.map((injury, index) => (
-            <Chip
-              key={index}
-              label={injury}
-              color="error"
-              variant="outlined"
-            />
-          ))}
-        </Box>
-
-        <Typography variant="subtitle2" gutterBottom>
-          Detected Symptoms
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {detectedConditions.symptoms.map((symptom, index) => (
-            <Chip
-              key={index}
-              label={symptom}
-              color="warning"
-              variant="outlined"
-            />
-          ))}
-        </Box>
-      </Box>
+      {renderDetectedConditions()}
     </div>
   );
 
@@ -467,54 +590,84 @@ const CallCenterDashboard = () => {
       </Typography>
       {activeCall ? (
         <Box sx={{ '& > *': { mb: 2 } }}>
-          {/* Symptoms section */}
+          {/* Priority Indicator */}
+          <Box sx={{ mb: 2 }}>
+            <Chip
+              label={`Priority: ${medicalInfo.priority}`}
+              color={medicalInfo.priority === 'HIGH' ? 'error' : 'warning'}
+              sx={{ fontWeight: 'bold' }}
+            />
+          </Box>
+
+          {/* Detected Conditions */}
           <div>
             <Typography variant="subtitle1" gutterBottom>
-              Symptoms
+              Detected Conditions
             </Typography>
-            <Box className="symptoms-box">
-              {symptoms.map((symptom, index) => (
+            <Box className="conditions-box">
+              {detectedConditions.symptoms.map((symptom, index) => (
                 <Chip
                   key={index}
                   label={symptom}
-                  color="primary"
+                  color={getSeverityColor(MEDICAL_INFO[symptom.toLowerCase()]?.priority || 'LOW')}
                   variant="outlined"
+                  sx={{ m: 0.5 }}
                 />
               ))}
             </Box>
           </div>
 
-          {/* Severity Score section */}
+          {/* Immediate Actions */}
           <div>
             <Typography variant="subtitle1" gutterBottom>
-              Severity Score
+              Recommended Actions
             </Typography>
-            <Chip
-              label={`${computedSeverity}/10`}
-              color={computedSeverity >= 8 ? 'error' : computedSeverity >= 5 ? 'warning' : 'success'}
-            />
+            <List dense>
+              {medicalInfo.actions.map((action, index) => (
+                <ListItem key={index}>
+                  <ListItemIcon>
+                    <CheckIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText primary={action} />
+                </ListItem>
+              ))}
+            </List>
+          </div>
+
+          {/* Key Questions */}
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Key Questions to Ask
+            </Typography>
+            <Box className="questions-box">
+              {medicalInfo.questions.map((question, index) => (
+                <div key={index} className="key-point-bubble question-bubble">
+                  {question}
+                </div>
+              ))}
+            </Box>
+          </div>
+
+          {/* Precautions */}
+          <div>
+            <Typography variant="subtitle1" gutterBottom>
+              Important Precautions
+            </Typography>
+            <Box className="precautions-box">
+              {medicalInfo.precautions.map((precaution, index) => (
+                <Chip
+                  key={index}
+                  label={precaution}
+                  color="warning"
+                  variant="outlined"
+                  sx={{ m: 0.5 }}
+                />
+              ))}
+            </Box>
           </div>
 
           {/* Live Transcription section */}
           {renderTranscriptionBox()}
-
-          {/* Extracted Symptoms section */}
-          <div>
-            <Typography variant="subtitle1" gutterBottom>
-              Extracted Symptoms
-            </Typography>
-            <Box className="extracted-symptoms-box">
-              {extractedSymptoms.map((symptom, index) => (
-                <Chip
-                  key={index}
-                  label={symptom.text}
-                  color={symptom.severity === 'high' ? 'error' : 
-                        symptom.severity === 'medium' ? 'warning' : 'default'}
-                  variant="outlined"
-                />
-              ))}
-            </Box>
-          </div>
         </Box>
       ) : (
         <Typography color="text.secondary">No active call</Typography>
@@ -650,6 +803,15 @@ const CallCenterDashboard = () => {
           </Paper>
         </Grid>
       </Grid>
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Emergency Records
+        </Typography>
+        <RecordsTable
+          records={records}
+          onDeleteRecord={handleDeleteRecord}
+        />
+      </Box>
       <Dialog open={newCallDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>Start New Emergency Call</DialogTitle>
         <DialogContent>
