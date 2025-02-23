@@ -109,70 +109,72 @@ const NearbyHospitals = ({ patientDetails }) => {
   const [nearestHospitals, setNearestHospitals] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState({ lat: 53.3498, lng: -6.2603 });
   const [locationInput, setLocationInput] = useState('Dublin');
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Fetch hospitals based on patient address
   // Effect to update hospitals when patient details change
+  // Process hospitals data and calculate distances
+  useEffect(() => {
+    if (hospitals.length > 0 && selectedLocation) {
+      const processedHospitals = hospitals.map(hospital => ({
+        ...hospital,
+        distance: calculateDistance(
+          selectedLocation.lat,
+          selectedLocation.lng,
+          hospital.lat,
+          hospital.lon
+        ),
+        estimatedTime: Math.round(calculateDistance(
+          selectedLocation.lat,
+          selectedLocation.lng,
+          hospital.lat,
+          hospital.lon
+        ) * 2) // Rough estimate: 2 minutes per km
+      }));
+      
+      // Sort by distance
+      const sorted = [...processedHospitals].sort((a, b) => a.distance - b.distance);
+      setNearestHospitals(sorted);
+    }
+  }, [hospitals, selectedLocation]);
+
+  // Fetch hospitals
   useEffect(() => {
     const fetchHospitals = async (lat, lng) => {
+      setLoading(true);
+      setError(null);
       try {
         const hospitalsData = await fetchNearbyHospitals(lat, lng);
         setHospitals(hospitalsData);
-      } catch (error) {
-        console.error('Failed to fetch hospitals', error);
+      } catch (err) {
+        console.error('Failed to fetch hospitals', err);
+        setError('Failed to fetch hospitals');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchHospitals(selectedLocation.lat, selectedLocation.lng);
-  }, [selectedLocation]);
 
     // Refresh data every 5 minutes
-    const refreshInterval = setInterval(loadHospitals, 300000);
+    const refreshInterval = setInterval(() => {
+      fetchHospitals(selectedLocation.lat, selectedLocation.lng);
+    }, 300000);
     
     // Cleanup function
-    return () => {
-      isSubscribed = false;
-      clearInterval(refreshInterval);
-    };
-  }, [patientDetails?.address]); // Only depend on the address
+    return () => clearInterval(refreshInterval);
+  }, [selectedLocation]); // Only depend on selectedLocation
 
 
 
-  // Effect to handle hospital assignments
+  // Update nearest hospitals when the full hospital list changes
   useEffect(() => {
-    if (!hospitals.length) return;
-
-    // Sort hospitals by distance and get the nearest 5
-    const sortedHospitals = [...hospitals]
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5);
-
-    setNearestHospitals(sortedHospitals);
-
-    // Automatically assign patients to nearest hospitals
-    if (patients && patients.length > 0) {
-      const newAssignments = {};
-      patients.forEach(patient => {
-        if (!hospitalAssignments[patient.id]) {
-          // Find the hospital with the least current assignments
-          const hospitalCounts = {};
-          Object.values(hospitalAssignments).forEach(hospitalId => {
-            hospitalCounts[hospitalId] = (hospitalCounts[hospitalId] || 0) + 1;
-          });
-
-          const availableHospitals = sortedHospitals.filter(hospital => 
-            (hospitalCounts[hospital.id] || 0) < 5 && // Limit of 5 patients per hospital
-            (hospital.type === 'Emergency' || !patient.isEmergency) // Emergency patients go to emergency hospitals
-          );
-
-          if (availableHospitals.length > 0) {
-            newAssignments[patient.id] = availableHospitals[0].id;
-          }
-        }
-      });
-
-      setHospitalAssignments(prev => ({ ...prev, ...newAssignments }));
+    if (hospitals.length > 0) {
+      const sorted = [...hospitals].sort((a, b) => a.distance - b.distance);
+      setNearestHospitals(sorted.slice(0, 5));
     }
-  }, [hospitals, patients]); // Only depend on hospitals and patients
+  }, [hospitals]);
 
   const handleLocationSubmit = async () => {
     try {
@@ -250,7 +252,7 @@ const NearbyHospitals = ({ patientDetails }) => {
             )}
           <List>
             {nearestHospitals.map((hospital) => (
-              <ListItem key={hospital.id} sx={{ 
+              <ListItem key={hospital.id || hospital.osm_id} sx={{ 
                 border: '1px solid #e0e0e0', 
                 borderRadius: 1, 
                 mb: 1,
@@ -259,47 +261,27 @@ const NearbyHospitals = ({ patientDetails }) => {
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle1">
-                      {hospital.name || 'Unnamed Hospital'}
+                      {hospital.name || hospital.tags?.name || 'Unnamed Hospital'}
                     </Typography>
                     <Chip 
                       size="small"
-                      label={hospital.type}
+                      label={hospital.type || 'General'}
                       color={hospital.type === 'Emergency' ? 'warning' : 'default'}
                     />
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                     <LocationOnIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
                     <Typography variant="body2" color="text.secondary">
-                      {hospital.distance.toFixed(2)} km away
+                      {typeof hospital.distance === 'number' ? `${hospital.distance.toFixed(2)} km away` : 'Distance unavailable'}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <AccessTimeIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
                     <Typography variant="body2" color="text.secondary">
-                      ETA: {hospital.estimatedTime} mins
+                      ETA: {typeof hospital.estimatedTime === 'number' ? `${hospital.estimatedTime} mins` : 'Time unavailable'}
                     </Typography>
                   </Box>
-                  {Object.entries(hospitalAssignments)
-                    .filter(([_, hId]) => hId === hospital.id)
-                    .map(([patientId]) => {
-                      const patient = patients.find(p => p.id === patientId);
-                      return patient ? (
-                        <Box key={patientId} sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                          borderRadius: 1,
-                          p: 0.5,
-                          mb: 0.5
-                        }}>
-                          <AssignmentIcon sx={{ mr: 1, fontSize: '0.9rem', color: 'primary.main' }} />
-                          <Typography variant="body2" color="primary">
-                            {patient.name || `Patient ${patientId}`}
-                          </Typography>
-                        </Box>
-                      ) : null;
-                    })
-                  }
+
                 </Box>
               </ListItem>
             ))}          
