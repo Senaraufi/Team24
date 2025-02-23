@@ -1,16 +1,16 @@
-# Emergency Response AI Platform
+# 🚑 Emergency Response AI Platform
 
 This system is an AI-powered emergency response platform designed for call centers and doctors. It provides real-time transcription, analysis, and routing of emergency calls to streamline the emergency response process.
 
-## Features
+## ✨ Features
 
-- Real-time call transcription
-- Automatic symptom and patient detail extraction
-- Live call center dashboard
-- Doctor's emergency notification system
-- Ambulance dispatch optimization
+- 📝 Real-time call transcription
+- 🩺 Automatic symptom and patient detail extraction
+- 📊 Live call center dashboard
+- 📲 Doctor's emergency notification system
+- 🚒 Ambulance dispatch optimization
 
-## Setup
+## ⚙️ Setup
 
 1. **Install dependencies:**
     ```bash
@@ -28,25 +28,25 @@ This system is an AI-powered emergency response platform designed for call cente
     python app.py
     ```
 
-## System Components
+## 🖥️ System Components
 
 - **Backend:** Flask (Python)
 - **Frontend:** React
 - **Real-time Communication:** Socket.IO
 - **AI Processing:** OpenAI API
 
-## Security Note
+## 🔒 Security Note
 
 This system handles sensitive medical information. Ensure all necessary security protocols and HIPAA compliance measures are in place before deployment.
 
-## Contributing
+## 🤝 Contributing
 
 We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for more details.
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contact
+## 📧 Contact
 
 For more information, please contact our team at [support@team24.com](mailto:support@team24.com).
