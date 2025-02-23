@@ -44,7 +44,7 @@ const CallCenterDashboard = () => {
     transcript,
     patientDetails,
     symptoms,
-    severityScore,
+    severityScore, // Remove default value
     severityDescription,
     dispatchInfo,
     startEmergencyCall,
@@ -229,7 +229,7 @@ const CallCenterDashboard = () => {
           Call Center Dashboard
         </Typography>
         <Box>
-          {severityScore >= 4.5 && (
+          {severityScore !== null && severityScore >= 4.5 && (
             <Chip
               icon={<WarningIcon />}
               label="CRITICAL EMERGENCY"
@@ -258,7 +258,7 @@ const CallCenterDashboard = () => {
         </Box>
       </Box>
       
-      {activeCall && (
+      {activeCall && severityScore !== null && (
         <Paper 
           elevation={3} 
           sx={{ 

@@ -9,13 +9,15 @@ import {
   ThemeProvider, 
   Toolbar, 
   Typography, 
+  Button,
   createTheme 
 } from '@mui/material';
 import CallCenterDashboard from './components/CallCenterDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import DialerRecords from './components/DialerRecords';
-import { EmergencyProvider } from './context/EmergencyContext';
+import { EmergencyProvider, useEmergency } from './context/EmergencyContext';
 import { PatientProvider } from './context/PatientContext';
+import { CallEnd as CallEndIcon } from '@mui/icons-material';
 
 const theme = createTheme({
   palette: {
@@ -86,34 +88,75 @@ function App() {
       <CssBaseline />
       <EmergencyProvider>
         <PatientProvider>
-          <Box sx={{ flexGrow: 1 }}>
-            <AppBar position="fixed" sx={{ height: 70, borderRadius: 0 }}>
-              <Toolbar sx={{ justifyContent: 'center', height: '100%', minHeight: '64px' }}>
-                <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
-                  Emergency Response System
-                </Typography>
-              </Toolbar>
-            </AppBar>
-            <Container maxWidth="xl" sx={{ mt: 5, mb: 4, pt: 2 }}>
-              <Tabs 
-                value={currentTab} 
-                onChange={handleTabChange}
-                centered
-                sx={{ bgcolor: 'primary.dark', mt: 2 }}
-              >
-                <Tab label="Call Center" />
-                <Tab label="Doctor Dashboard" />
-                <Tab label="Dialer Records" />
-              </Tabs>
-              {currentTab === 0 && <CallCenterDashboard />}
-              {currentTab === 1 && <DoctorDashboard />}
-              {currentTab === 2 && <DialerRecords />}
-            </Container>
-          </Box>
+          <AppContent currentTab={currentTab} handleTabChange={handleTabChange} />
         </PatientProvider>
       </EmergencyProvider>
     </ThemeProvider>
   );
 }
+
+const AppContent = ({ currentTab, handleTabChange }) => {
+  const { activeCall, endEmergencyCall, setEmergencyLocation, setAmbulanceLocation, setEditingDetails, setVerifiedDetails, setEditedPatientDetails, setLiveTranscript, setExtractedSymptoms } = useEmergency();
+
+  const handleCancelCall = async () => {
+    try {
+      const result = await endEmergencyCall();
+      if (result) {
+        console.log('Call ended successfully');
+        setEmergencyLocation(null);
+        setAmbulanceLocation(null);
+        setEditingDetails(false);
+        setVerifiedDetails(false);
+        setEditedPatientDetails({});
+        setLiveTranscript('');
+        setExtractedSymptoms([]);
+      } else {
+        console.error('Failed to end call');
+      }
+    } catch (error) {
+      console.error('Error ending call:', error);
+    }
+  };
+
+  return (
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar position="fixed" sx={{ height: 70, borderRadius: 0 }}>
+        <Toolbar sx={{ justifyContent: 'center', height: '100%', minHeight: '64px' }}>
+          <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+            Emergency Response System
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="xl" sx={{ mt: 5, mb: 4, pt: 2 }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={handleTabChange}
+          centered
+          sx={{ bgcolor: 'primary.dark', mt: 2 }}
+        >
+          <Tab label="Call Center" />
+          <Tab label="Doctor Dashboard" />
+          <Tab label="Dialer Records" />
+        </Tabs>
+        {currentTab === 0 && <CallCenterDashboard />}
+        {currentTab === 1 && <DoctorDashboard />}
+        {currentTab === 2 && <DialerRecords />}
+      </Container>
+      {activeCall && (
+        <Box sx={{ position: 'fixed', bottom: 20, right: 20 }}>
+          <Button
+            variant="contained"
+            color="error"
+            size="large"
+            onClick={handleCancelCall}
+            startIcon={<CallEndIcon />}
+          >
+            Hang Up
+          </Button>
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 export default App;
