@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Grid, Paper, Typography, List, ListItem, Chip } from '@mui/material';
+import { Box, Grid, Paper, Typography, List, ListItem, Chip, TextField, Button } from '@mui/material';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -11,9 +11,13 @@ const mapContainerStyle = {
   flexGrow: 1
 };
 
-const center = {
-  lat: 54.3498, // Dublin city center
-  lng: -6.2603,
+const fetchCoordinates = async (location) => {
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location}`);
+  const data = await response.json();
+  if (data.length > 0) {
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  }
+  throw new Error('Location not found');
 };
 
 const fetchNearbyHospitals = async (lat, lng) => {
@@ -53,20 +57,21 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 const NearbyHospitals = () => {
   const [hospitals, setHospitals] = useState([]);
   const [nearestHospitals, setNearestHospitals] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState(center);
+  const [selectedLocation, setSelectedLocation] = useState({ lat: 53.3498, lng: -6.2603 });
+  const [locationInput, setLocationInput] = useState('Dublin');
 
   useEffect(() => {
-    const fetchHospitals = async () => {
+    const fetchHospitals = async (lat, lng) => {
       try {
-        const hospitalsData = await fetchNearbyHospitals(center.lat, center.lng);
+        const hospitalsData = await fetchNearbyHospitals(lat, lng);
         setHospitals(hospitalsData);
       } catch (error) {
         console.error('Failed to fetch hospitals', error);
       }
     };
 
-    fetchHospitals();
-  }, []);
+    fetchHospitals(selectedLocation.lat, selectedLocation.lng);
+  }, [selectedLocation]);
 
   useEffect(() => {
     if (!hospitals.length) return;
@@ -93,13 +98,22 @@ const NearbyHospitals = () => {
     setNearestHospitals(sortedHospitals);
   }, [hospitals, selectedLocation]);
 
+  const handleLocationSubmit = async () => {
+    try {
+      const coordinates = await fetchCoordinates(locationInput);
+      setSelectedLocation(coordinates);
+    } catch (error) {
+      console.error('Failed to fetch coordinates', error);
+    }
+  };
+
   return (
     <Grid container spacing={3} sx={{ height: '80vh' }}>
       <Grid item xs={12} md={8} sx={{ height: '100%' }}>
         <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <iframe
             title="Map"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.05},${center.lat - 0.05},${center.lng + 0.05},${center.lat + 0.05}&layer=mapnik`}
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedLocation.lng - 0.05},${selectedLocation.lat - 0.05},${selectedLocation.lng + 0.05},${selectedLocation.lat + 0.05}&layer=mapnik`}
             style={mapContainerStyle}
           ></iframe>
         </Paper>
@@ -126,6 +140,22 @@ const NearbyHospitals = () => {
               <LocalHospitalIcon sx={{ mr: 1 }} />
               Nearby Hospitals
             </Typography>
+            <Box sx={{ display: 'flex', mt: 2 }}>
+              <TextField
+                label="Location"
+                value={locationInput}
+                onChange={(e) => setLocationInput(e.target.value)}
+                fullWidth
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleLocationSubmit}
+                sx={{ ml: 2 }}
+              >
+                Search
+              </Button>
+            </Box>
           </Box>
           <Box sx={{ 
             flexGrow: 1, 
