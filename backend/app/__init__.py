@@ -18,9 +18,8 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": "*"}})
     socketio.init_app(app, cors_allowed_origins="*")
     
-    # Configure SQLite database
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emergency.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Configure MySQL database
+    app.config.from_object('app.config.Config')
     db.init_app(app)
     
     # Create database tables
